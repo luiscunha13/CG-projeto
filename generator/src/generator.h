@@ -6,12 +6,20 @@
 #include <vector>
 #include <math.h>
 
-class generator {
-    std::vector<Point> generatePlane(float length, int divisions);
-    std::vector<Point> generateBox(float length, int divisions);
-    std::vector<Point> generateSphere(float radius, int slices, int stacks);
-    std::vector<Point> generateCone(float radius, float height, int slices, int stacks);
-};
+namespace generator{
 
+    struct Generator{
+      std::vector<Vec3f> vertices;
+      std::vector<uint32_t> indices;
+    };
+
+    Generator generatePlane(float length, int divisions)
+    Generator generateBox(float length, int divisions)
+    Generator generateSphere(float radius, int slices, int stacks)
+    Generator generateCone(float radius, float height, int slices, int stacks)
+
+    bool SaveModel(const Generator& generator, const std::string& filename);
+
+}
 
 #endif
