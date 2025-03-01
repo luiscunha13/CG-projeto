@@ -46,14 +46,14 @@ Generator generatePlane(float size, int divisions) {
     return {vertices, indexes};
 }
 
-Generator drawBox(float length, int divisions) {
+Generator generateBox(float length, int divisions) {
     float step = length / divisions;
     float halfLength = length / 2.0f;
 
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
 
-
+    cout << "Vertices" << endl;
     for (int face = 0; face < 6; ++face) {
         for (int i = 0; i <= divisions; ++i) {
             for (int j = 0; j <= divisions; ++j) {
@@ -87,6 +87,7 @@ Generator drawBox(float length, int divisions) {
         }
     }
 
+    cout << "Indices" << endl;
     for (int face = 0; face < 6; ++face) {
         int offset = face * (divisions + 1) * (divisions + 1);
         for (int i = 0; i < divisions; ++i) {
