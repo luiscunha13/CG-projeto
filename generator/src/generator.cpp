@@ -1,15 +1,49 @@
-#include "generator.h"
-#include"../../common/include/utils.h"
-
-#include <vector>
+#include <generator.h>
+#include <iostream>
+#include <fstream>
+#include <string>
 #include <math.h>
 
+using namespace std;
 
 namespace generator {
 
+template <typename T>
+void add3Items(const T& i1, const T& i2, const T& i3, vector<T> &items) {
+    items.push_back(i1);
+    items.push_back(i2);
+    items.push_back(i3);
+}
 
-std::vector<Point> generatePlane(float length, int divisions){
+Generator generatePlane(float size, int divisions) {
+    vector<Vertex3f> vertices;
+    vector<unsigned int> indexes;
 
+    const auto side = size / divisions;
+    const auto middle = size / 2;
+    cout << "VErtices" << endl;
+    for (int z = 0; z < divisions + 1; ++z) {
+        for (int x = 0; x < divisions + 1; ++x) {
+            cout << -middle + x * side << " 0 " << -middle + z * side << endl;
+            vertices.push_back({-middle + x * side, 0, -middle + z * side});
+        }
+    }
+
+    cout << "Indices" << endl;
+    for (int z = 0; z < divisions; ++z) {
+        for (int x = 0; x < divisions; ++x) {
+            const uint32_t top_left = x * (divisions + 1) + z;
+            const uint32_t top_right = top_left + 1;
+            const uint32_t bottom_left = (x + 1) * (divisions + 1) + z;
+            const uint32_t bottom_right = bottom_left + 1;
+            cout << top_left << " " << bottom_left << " " << bottom_right << endl;
+            cout << top_left << " " << bottom_right << " " << top_right << endl;
+            add3Items(top_left, bottom_left, bottom_right, indexes);
+            add3Items(top_left, bottom_right, top_right, indexes);
+        }
+    }
+
+    return {vertices, indexes};
 }
 
 Generator GenerateBox(float length, size_t divisions)
@@ -19,20 +53,13 @@ Generator GenerateBox(float length, size_t divisions)
         float step = length / divisions;
 
         // Array de direções normais para cada face da caixa
-        Vec3f faceNormals[6] = {
-            Vec3f(0.0f, 0.0f, 1.0f),   // Frente (Z+)
-            Vec3f(0.0f, 0.0f, -1.0f),  // Trás (Z-)
-            Vec3f(0.0f, 1.0f, 0.0f),   // Topo (Y+)
-            Vec3f(0.0f, -1.0f, 0.0f),  // Base (Y-)
-            Vec3f(1.0f, 0.0f, 0.0f),   // Direita (X+)
-            Vec3f(-1.0f, 0.0f, 0.0f)   // Esquerda (X-)
-        };
-
-        // Função para calcular coordenadas UV por face
-        auto calculateUV = [&](size_t faceIndex, size_t i, size_t j) -> Vec2f {
-            float u = static_cast<float>(j) / divisions;
-            float v = static_cast<float>(i) / divisions;
-            return Vec2f(u, v);
+        Vertex3f faceNormals[6] = {
+            Vertex3f(0.0f, 0.0f, 1.0f),   // Frente (Z+)
+            Vertex3f(0.0f, 0.0f, -1.0f),  // Trás (Z-)
+            Vertex3f(0.0f, 1.0f, 0.0f),   // Topo (Y+)
+            Vertex3f(0.0f, -1.0f, 0.0f),  // Base (Y-)
+            Vertex3f(1.0f, 0.0f, 0.0f),   // Direita (X+)
+            Vertex3f(-1.0f, 0.0f, 0.0f)   // Esquerda (X-)
         };
 
         // Gerar vértices para cada face
@@ -42,39 +69,33 @@ Generator GenerateBox(float length, size_t divisions)
             {
                 for (size_t j = 0; j <= divisions; j++)
                 {
-                    Vec3f pos;
+                    Vertex3f pos;
 
                     // Calcular posição do vértice com base na face
                     switch (face)
                     {
                         case 0: // Frente (Z+)
-                            pos = Vec3f(-halfLength + j * step, -halfLength + i * step, halfLength);
+                            pos = Vertex3f(-halfLength + j * step, -halfLength + i * step, halfLength);
                             break;
                         case 1: // Trás (Z-)
-                            pos = Vec3f(halfLength - j * step, -halfLength + i * step, -halfLength);
+                            pos = Vertex3f(halfLength - j * step, -halfLength + i * step, -halfLength);
                             break;
                         case 2: // Topo (Y+)
-                            pos = Vec3f(-halfLength + j * step, halfLength, halfLength - i * step);
+                            pos = Vertex3f(-halfLength + j * step, halfLength, halfLength - i * step);
                             break;
                         case 3: // Base (Y-)
-                            pos = Vec3f(-halfLength + j * step, -halfLength, -halfLength + i * step);
+                            pos = Vertex3f(-halfLength + j * step, -halfLength, -halfLength + i * step);
                             break;
                         case 4: // Direita (X+)
-                            pos = Vec3f(halfLength, -halfLength + i * step, halfLength - j * step);
+                            pos = Vertex3f(halfLength, -halfLength + i * step, halfLength - j * step);
                             break;
                         case 5: // Esquerda (X-)
-                            pos = Vec3f(-halfLength, -halfLength + i * step, -halfLength + j * step);
+                            pos = Vertex3f(-halfLength, -halfLength + i * step, -halfLength + j * step);
                             break;
                     }
 
                     // Adicionar vértice
                     result.vertices.push_back(pos);
-
-                    // Adicionar normal
-                    result.normals.push_back(faceNormals[face]);
-
-                    // Adicionar coordenada de textura
-                    result.tex_coords.push_back(calculateUV(face, i, j));
                 }
             }
         }
@@ -110,22 +131,22 @@ Generator GenerateBox(float length, size_t divisions)
 
         return result;
     }
-}
 
-std::vector<Point> generateSphere(float radius, int slices, int stacks){
 
-}
-
-std::vector<Point> generateCone(float radius, float height, int slices, int stacks){
+Generator GenerateSphere(float radius, int slices, int stacks){
 
 }
 
-bool SaveModel(const GeneratorResult &result, const std::string &filename)
+Generator GenerateCone(float radius, float height, int slices, int stacks){
+
+}
+
+bool SaveModel(const Generator &result, const std::string &filename)
     {
-        std::ofstream file(filename);
+        ofstream file(filename);
         if (!file)
         {
-            std::cerr << "Erro ao abrir arquivo: " << filename << std::endl;
+            cerr << "Erro ao abrir arquivo: " << filename << std::endl;
             return false;
         }
 

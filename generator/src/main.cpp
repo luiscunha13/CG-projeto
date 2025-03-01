@@ -49,6 +49,16 @@ int main(const int argc, char *argv[]){
             print_command_usage(figure);
             return 1;
         }
+
+        try {
+            float size = stof(argv[2]);
+            int divisions = stof(argv[3]);
+            SaveModel(generator::generatePlane(size, divisions), argv[4]);
+        }
+        catch (const std::logic_error &) {
+            cerr << "Error parsing the arguments of " << figure << endl;
+            return 1;
+        }
     } else if (figure == "box") {
         if (argc != 5) {
             print_command_usage(figure);
@@ -67,4 +77,6 @@ int main(const int argc, char *argv[]){
     } else {
         print_command_usage("");
     }
+
+    return 0;
 }
