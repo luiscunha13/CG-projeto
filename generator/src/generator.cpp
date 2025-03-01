@@ -109,11 +109,43 @@ Generator generateBox(float length, int divisions) {
 }
 
 
-Generator GenerateSphere(float radius, int slices, int stacks){
+Generator generateSphere(float radius, int stacks, int slices) {
+    vector<Vertex3f> vertices;
+    vector<unsigned int> indexes;
 
+    cout << "Vertices" << endl;
+    for (int i = 0; i <= stacks; ++i) {
+        float stackAngle = M_PI / 2 - i * (M_PI / stacks); //pi/2 a -pi/2
+        float xy = radius * cos(stackAngle); // distancia horizontal ao eixo
+        float z = radius * sin(stackAngle); // altura
+
+        for (int j = 0; j <= slices; ++j) {
+            float sliceAngle = j * (2 * M_PI / slices); // 0 a 2pi
+            float x = xy * cos(sliceAngle);
+            float y = xy * sin(sliceAngle);
+
+            cout << x << y  << z << endl;
+            vertices.push_back({x, y, z});
+        }
+    }
+
+    cout << "Indices" << endl;
+    for (int i = 0; i < stacks; ++i) {
+        for (int j = 0; j < slices; ++j) {
+            const uint32_t first = i * (slices + 1) + j;
+            const uint32_t second = first + slices + 1;
+
+            cout << first << " " << second << " " << second + 1 << endl;
+            cout << first << " " << second + 1 << " " << first + 1 << endl;
+            add3Items(first, second, second + 1, indexes);
+            add3Items(first, second + 1, first + 1, indexes);
+        }
+    }
+
+    return {vertices, indexes};
 }
 
-Generator GenerateCone(float radius, float height, int slices, int stacks){
+Generator generateCone(float radius, float height, int slices, int stacks){
 
 }
 
