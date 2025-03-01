@@ -21,7 +21,7 @@ Generator generatePlane(float size, int divisions) {
 
     const auto side = size / divisions;
     const auto middle = size / 2;
-    cout << "VErtices" << endl;
+    cout << "Vertices" << endl;
     for (int z = 0; z < divisions + 1; ++z) {
         for (int x = 0; x < divisions + 1; ++x) {
             cout << -middle + x * side << " 0 " << -middle + z * side << endl;
@@ -46,91 +46,66 @@ Generator generatePlane(float size, int divisions) {
     return {vertices, indexes};
 }
 
-Generator GenerateBox(float length, size_t divisions)
-    {
-        Generator result;
-        float halfLength = length / 2.0f;
-        float step = length / divisions;
+Generator drawBox(float length, int divisions) {
+    float step = length / divisions;
+    float halfLength = length / 2.0f;
 
-        // Array de direções normais para cada face da caixa
-        Vertex3f faceNormals[6] = {
-            Vertex3f(0.0f, 0.0f, 1.0f),   // Frente (Z+)
-            Vertex3f(0.0f, 0.0f, -1.0f),  // Trás (Z-)
-            Vertex3f(0.0f, 1.0f, 0.0f),   // Topo (Y+)
-            Vertex3f(0.0f, -1.0f, 0.0f),  // Base (Y-)
-            Vertex3f(1.0f, 0.0f, 0.0f),   // Direita (X+)
-            Vertex3f(-1.0f, 0.0f, 0.0f)   // Esquerda (X-)
-        };
+    vector<Vertex3f> vertices;
+    vector<unsigned int> indexes;
 
-        // Gerar vértices para cada face
-        for (size_t face = 0; face < 6; face++)
-        {
-            for (size_t i = 0; i <= divisions; i++)
-            {
-                for (size_t j = 0; j <= divisions; j++)
-                {
-                    Vertex3f pos;
 
-                    // Calcular posição do vértice com base na face
-                    switch (face)
-                    {
-                        case 0: // Frente (Z+)
-                            pos = Vertex3f(-halfLength + j * step, -halfLength + i * step, halfLength);
-                            break;
-                        case 1: // Trás (Z-)
-                            pos = Vertex3f(halfLength - j * step, -halfLength + i * step, -halfLength);
-                            break;
-                        case 2: // Topo (Y+)
-                            pos = Vertex3f(-halfLength + j * step, halfLength, halfLength - i * step);
-                            break;
-                        case 3: // Base (Y-)
-                            pos = Vertex3f(-halfLength + j * step, -halfLength, -halfLength + i * step);
-                            break;
-                        case 4: // Direita (X+)
-                            pos = Vertex3f(halfLength, -halfLength + i * step, halfLength - j * step);
-                            break;
-                        case 5: // Esquerda (X-)
-                            pos = Vertex3f(-halfLength, -halfLength + i * step, -halfLength + j * step);
-                            break;
-                    }
+    for (int face = 0; face < 6; ++face) {
+        for (int i = 0; i <= divisions; ++i) {
+            for (int j = 0; j <= divisions; ++j) {
+                float v = -halfLength + i * step;
+                float u = -halfLength + j * step;
 
-                    // Adicionar vértice
-                    result.vertices.push_back(pos);
+                Vertex3f vertex;
+                switch (face) {
+                    case 0: // frente
+                        vertex = {v, u, halfLength};
+                        break;
+                    case 1: // trás
+                        vertex = {v, u, -halfLength};
+                        break;
+                    case 2: // esquerda
+                        vertex = {-halfLength, v, u};
+                        break;
+                    case 3: // direita
+                        vertex = {halfLength, v, u};
+                        break;
+                    case 4: // cima
+                        vertex = {v, halfLength, u};
+                        break;
+                    case 5: // baixo
+                        vertex = {v, -halfLength, u};
+                        break;
                 }
+                cout << vertex.x << vertex.y  << vertex.z << endl;
+                vertices.push_back(vertex);
             }
         }
-
-        // Gerar índices para os triângulos
-        size_t verticesPerFace = (divisions + 1) * (divisions + 1);
-
-        for (size_t face = 0; face < 6; face++)
-        {
-            size_t faceOffset = face * verticesPerFace;
-
-            for (size_t i = 0; i < divisions; i++)
-            {
-                for (size_t j = 0; j < divisions; j++)
-                {
-                    uint32_t p0 = faceOffset + i * (divisions + 1) + j;
-                    uint32_t p1 = p0 + 1;
-                    uint32_t p2 = p0 + (divisions + 1);
-                    uint32_t p3 = p2 + 1;
-
-                    // Primeiro triângulo
-                    result.indices.push_back(p0);
-                    result.indices.push_back(p2);
-                    result.indices.push_back(p1);
-
-                    // Segundo triângulo
-                    result.indices.push_back(p1);
-                    result.indices.push_back(p2);
-                    result.indices.push_back(p3);
-                }
-            }
-        }
-
-        return result;
     }
+
+    for (int face = 0; face < 6; ++face) {
+        int offset = face * (divisions + 1) * (divisions + 1);
+        for (int i = 0; i < divisions; ++i) {
+            for (int j = 0; j < divisions; ++j) {
+                const uint32_t top_left = offset + i * (divisions + 1) + j;
+                const uint32_t top_right = top_left + 1;
+                const uint32_t bottom_left = offset + (i + 1) * (divisions + 1) + j;
+                const uint32_t bottom_right = bottom_left + 1;
+
+                cout << top_left << " " << bottom_left << " " << bottom_right << endl;
+                cout << top_left << " " << bottom_right << " " << top_right << endl;
+                add3Items(top_left, bottom_left, bottom_right, indexes);
+                add3Items(top_left, bottom_right, top_right, indexes);
+            }
+        }
+    }
+
+    return {vertices, indexes};
+}
 
 
 Generator GenerateSphere(float radius, int slices, int stacks){
