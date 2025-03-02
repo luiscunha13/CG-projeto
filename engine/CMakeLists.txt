@@ -9,6 +9,9 @@ add_executable(${PROJECT_NAME} src/main.cpp)
 
 find_package(OpenGL REQUIRED)
 include_directories(${OpenGL_INCLUDE_DIRS})
+include_directories(../common/include)
+include_directories(../lib/tinyxml2)
+include_directories(include/)
 link_directories(${OpenGL_LIBRARY_DIRS})
 add_definitions(${OpenGL_DEFINITIONS})
 
