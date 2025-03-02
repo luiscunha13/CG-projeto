@@ -23,16 +23,10 @@ struct Camera {
     Projection projection;
 };
 
-// Structure to hold model data
-struct Model {
-    std::string file;
-};
-
 struct World {
     Window window;
     Camera camera;
-    std::vector<Model> models;
+    std::vector<std::string> models;
 };
-
 
 #endif
