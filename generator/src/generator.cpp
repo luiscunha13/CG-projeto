@@ -19,8 +19,8 @@ Generator generatePlane(float size, int divisions) {
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
 
-    const auto side = size / divisions;
-    const auto middle = size / 2;
+    const float side = size / divisions;
+    const float middle = size / 2;
     cout << "Vertices" << endl;
     for (int z = 0; z < divisions + 1; ++z) {
         for (int x = 0; x < divisions + 1; ++x) {
@@ -145,8 +145,55 @@ Generator generateSphere(float radius, int stacks, int slices) {
     return {vertices, indexes};
 }
 
-Generator generateCone(float radius, float height, int slices, int stacks){
+Generator generateCone(float radius, float height, unsigned int slices, unsigned int stacks) {
+    vector<Vertex3f> vertices;
+    vector<uint32_t> indexes;
 
+    const float stack_size = height / stacks;
+    const double slice_size = 2 * M_PI / slices;
+
+    const Vertex3f base_center = {0, 0, 0};
+    vertices.push_back(base_center);
+
+    for (int slice = 0; slice <= slices; ++slice) {
+        float angle = slice * slice_size;
+        float x = radius * cos(angle);
+        float z = radius * sin(angle);
+
+
+        vertices.push_back({x, 0, z});
+
+        for (int stack = 0; stack <= stacks; ++stack) {
+            const float current_radius = radius - stack * radius / stacks;
+            float current_x = current_radius * cos(angle);
+            float current_z = current_radius * sin(angle);
+            float current_y = stack * stack_size;
+
+            vertices.push_back({current_x, current_y, current_z});
+        }
+    }
+
+    for (int slice = 0; slice < slices; ++slice) {
+        for (int stack = 0; stack < stacks; ++stack) {
+            uint32_t bottom_left_index = 2 + stack + (slice * (stacks + 2));
+            uint32_t bottom_right_index = bottom_left_index + stacks + 2;
+
+            uint32_t top_left_index = bottom_left_index + 1;
+            uint32_t top_right_index = bottom_right_index + 1;
+
+            add3Items(top_left_index, bottom_left_index, bottom_right_index, indexes);
+
+            if (stack != stacks - 1)
+                add3Items(top_left_index, bottom_right_index, top_right_index, indexes);
+        }
+
+        uint32_t base_left_index = 1 + (slice * (stacks + 2));
+        uint32_t base_right_index = base_left_index + stacks + 2;
+
+        indexes.insert(indexes.end(), {base_right_index, base_left_index, 0}); // base triangle
+    }
+
+    return {vertices, indexes};
 }
 
 bool SaveModel(const Generator &result, const std::string &filename)
