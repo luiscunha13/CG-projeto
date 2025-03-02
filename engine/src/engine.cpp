@@ -9,6 +9,9 @@
 World world = {};
 std::vector<Model> models;
 
+float translateX = 0.0f;
+float translateZ = 0.0f;
+float rotationAngle = 0.0f;
 float height = 2.0f;
 
 void changeSize(int w, int h) {
@@ -100,6 +103,49 @@ void renderScene() {
     glutSwapBuffers();
 }
 
+void processKeys(unsigned char key, int x, int y){
+	switch (key) {
+		case 'd': // when 'd' is pressed
+			translateX += 0.1f; // increment X position
+		glutPostRedisplay(); // request a redraw
+		break;
+		case 'a':
+			translateX -= 0.1f; // increment X position
+		glutPostRedisplay(); // request a redraw
+		break;
+		case 'w': // when 'd' is pressed
+			translateZ -= 0.1f; // increment X position
+		glutPostRedisplay(); // request a redraw
+		break;
+		case 's':
+			translateZ += 0.1f; // increment X position
+		glutPostRedisplay(); // request a redraw
+		break;
+	}
+}
+
+void processKeysSpecial(int key, int x, int y){
+	switch (key) {
+		case GLUT_KEY_UP: // when 'd' is pressed
+			height += 0.1f; // increment X position
+		glutPostRedisplay(); // request a redraw
+		break;
+		case GLUT_KEY_DOWN:
+			height -= 0.1f; // increment X position
+		glutPostRedisplay(); // request a redraw
+		break;
+		case GLUT_KEY_RIGHT: // when 'd' is pressed
+			rotationAngle += 5.0f; // increment X position
+		glutPostRedisplay(); // request a redraw
+		break;
+		case GLUT_KEY_LEFT:
+			rotationAngle -= 5.0f; // increment X position
+		glutPostRedisplay(); // request a redraw
+		break;
+	}
+}
+
+
 bool readModelFromFile(const std::string& filename, Model& model) {
     std::ifstream file(filename);
 
@@ -173,6 +219,8 @@ void run_engine(World new_world, int argc, char **argv) {
     glutReshapeFunc(changeSize);
 
     // put here the registration of the keyboard callbacks
+	glutKeyboardFunc(processKeys);
+	glutSpecialFunc(processKeysSpecial);
 
     //  OpenGL settings
     glEnable(GL_DEPTH_TEST);
