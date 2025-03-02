@@ -7,9 +7,9 @@
 using namespace std;
 using namespace tinyxml2;
 
-int a() {
+int a(string filepath) {
     XMLDocument doc;
-    XMLError result = doc.LoadFile("world.xml");
+    XMLError result = doc.LoadFile(filepath.c_str());
 
     if (result != XML_SUCCESS) {
         cerr << "Failed to load XML file: " << doc.ErrorStr() << endl;
@@ -116,6 +116,7 @@ int main(const int argc, char *argv[]){
     }
 
     const string filepath = argv[1];
-
+    a(filepath);
+    return 0;
 
 }
