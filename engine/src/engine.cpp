@@ -101,50 +101,49 @@ void renderScene() {
 }
 
 bool readModelFromFile(const std::string& filename, Model& model) {
-	std::ifstream file(filename, std::ios::binary);
+    std::ifstream file(filename);
 
-	if (!file.is_open()) {
-		std::cerr << "Error: Could not open file " << filename << std::endl;
-		return false;
-	}
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << std::endl;
+        return false;
+    }
 
-	// Read number of vertices
-	if (!file.read(reinterpret_cast<char*>(&model.n_vertices), sizeof(int))) {
-		std::cerr << "Error reading n_vertices from " << filename << std::endl;
-		file.close();
-		return false;
-	}
+    // Read number of vertices and triangles
+    int n_triangles;
+    if (!(file >> model.n_vertices >> n_triangles)) {
+        std::cerr << "Error reading vertex and triangle counts from " << filename << std::endl;
+        file.close();
+        return false;
+    }
 
-	// Read number of triangle indices (n_indices/3)
-	int n_triangles;
-	if (!file.read(reinterpret_cast<char*>(&n_triangles), sizeof(int))) {
-		std::cerr << "Error reading n_triangles from " << filename << std::endl;
-		file.close();
-		return false;
-	}
-	model.n_indices = n_triangles * 3; // Convert triangles to indices
+    model.n_indices = n_triangles * 3; // Convert triangles to indices
 
-	// Read vertices
-	model.vertices.resize(model.n_vertices);
-	for (int i = 0; i < model.n_vertices; i++) {
-		if (!file.read(reinterpret_cast<char*>(&model.vertices[i]), sizeof(Vertex3f))) {
-			std::cerr << "Error reading vertex " << i << " from " << filename << std::endl;
-			file.close();
-			return false;
-		}
-	}
+    // Resize the vertices vector
+    model.vertices.resize(model.n_vertices);
 
-	// Read indices
-	model.indices.resize(model.n_indices);
-	if (!file.read(reinterpret_cast<char*>(model.indices.data()),
-				   sizeof(unsigned int) * model.n_indices)) {
-		std::cerr << "Error reading indices from " << filename << std::endl;
-		file.close();
-		return false;
-				   }
+    // Read vertices
+    for (int i = 0; i < model.n_vertices; i++) {
+        if (!(file >> model.vertices[i].x >> model.vertices[i].y >> model.vertices[i].z)) {
+            std::cerr << "Error reading vertex " << i << " from " << filename << std::endl;
+            file.close();
+            return false;
+        }
+    }
 
-	file.close();
-	return true;
+    // Resize the indices vector
+    model.indices.resize(model.n_indices);
+
+    // Read indices
+    for (int i = 0; i < model.n_indices; i++) {
+        if (!(file >> model.indices[i])) {
+            std::cerr << "Error reading index " << i << " from " << filename << std::endl;
+            file.close();
+            return false;
+        }
+    }
+
+    file.close();
+    return true;
 }
 
 void loadModels() {

@@ -2,7 +2,7 @@
 #define MODEL_H
 
 #include <vector>
-#include <Vertex.h>
+#include <vertex.h>
 
 struct Model {
     int n_vertices;
