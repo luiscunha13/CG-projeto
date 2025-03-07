@@ -115,14 +115,14 @@ Generator generateSphere(float radius, int stacks, int slices) {
 
     cout << "Vertices" << endl;
     for (int i = 0; i <= stacks; ++i) {
-        float stackAngle = M_PI / 2 - i * (M_PI / stacks); //pi/2 a -pi/2
+        float stackAngle = i * (M_PI / stacks) - M_PI / 2 ; //pi/2 a -pi/2
         float xy = radius * cos(stackAngle); // distancia horizontal ao eixo
         float z = radius * sin(stackAngle); // altura
 
         for (int j = 0; j <= slices; ++j) {
             float sliceAngle = j * (2 * M_PI / slices); // 0 a 2pi
-            float x = xy * cos(sliceAngle);
-            float y = xy * sin(sliceAngle);
+            float y = xy * cos(sliceAngle);
+            float x = xy * sin(sliceAngle);
 
             cout << x << y  << z << endl;
             vertices.push_back({x, y, z});
@@ -157,11 +157,6 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
 
     for (int slice = 0; slice <= slices; ++slice) {
         float angle = slice * slice_size;
-        float x = radius * cos(angle);
-        float z = radius * sin(angle);
-
-
-        vertices.push_back({x, 0, z});
 
         for (int stack = 0; stack <= stacks; ++stack) {
             const float current_radius = radius - stack * radius / stacks;
@@ -175,8 +170,8 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
 
     for (int slice = 0; slice < slices; ++slice) {
         for (int stack = 0; stack < stacks; ++stack) {
-            uint32_t bottom_left_index = 2 + stack + (slice * (stacks + 2));
-            uint32_t bottom_right_index = bottom_left_index + stacks + 2;
+            uint32_t bottom_left_index = 1 + stack + (slice * (stacks + 1));
+            uint32_t bottom_right_index = bottom_left_index + stacks + 1;
 
             uint32_t top_left_index = bottom_left_index + 1;
             uint32_t top_right_index = bottom_right_index + 1;
@@ -187,8 +182,8 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
                 add3Items(top_left_index, bottom_right_index, top_right_index, indexes);
         }
 
-        uint32_t base_left_index = 1 + (slice * (stacks + 2));
-        uint32_t base_right_index = base_left_index + stacks + 2;
+        uint32_t base_left_index = 1 + (slice * (stacks + 1));
+        uint32_t base_right_index = base_left_index + stacks + 1;
 
         indexes.insert(indexes.end(), {base_right_index, base_left_index, 0}); // base triangle
     }
