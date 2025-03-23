@@ -9,6 +9,7 @@ struct Model {
     int n_indices;
     std::vector<Vertex3f> vertices;
     std::vector<unsigned int> indices;
+    std::vector<Transformation> transformations;
 };
 
 #endif

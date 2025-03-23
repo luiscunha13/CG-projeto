@@ -8,6 +8,82 @@
 using namespace std;
 using namespace tinyxml2;
 
+void parseTransformation(XMLElement* transformElement, Group& group) {
+    for (XMLElement* element = transformElement->FirstChildElement(); element; element = element->NextSiblingElement()) {
+        Transformation transformation;
+        if (strcmp(element->Name(), "translate") == 0) {
+            transformation.type = Transformation::Type::Translate;
+            element->QueryFloatAttribute("x", &transformation.coords.x);
+            element->QueryFloatAttribute("y", &transformation.coords.y);
+            element->QueryFloatAttribute("z", &transformation.coords.z);
+        } else if (strcmp(element->Name(), "rotate") == 0) {
+            transformation.type = Transformation::Type::Rotate;
+            element->QueryFloatAttribute("angle", &transformation.angle);
+            element->QueryFloatAttribute("x", &transformation.coords.x);
+            element->QueryFloatAttribute("y", &transformation.coords.y);
+            element->QueryFloatAttribute("z", &transformation.coords.z);
+        } else if (strcmp(element->Name(), "scale") == 0) {
+            transformation.type = Transformation::Type::Scale;
+            element->QueryFloatAttribute("x", &transformation.coords.x);
+            element->QueryFloatAttribute("y", &transformation.coords.y);
+            element->QueryFloatAttribute("z", &transformation.coords.z);
+        }
+        group.transformations.push_back(transformation);
+    }
+}
+
+void parseGroup(XMLElement* groupElement, Group& group){
+    XMLElement* transformElement = groupElement->FirstChildElement("transform");
+    if (transformElement) {
+        parseTransformation(transformElement, group);
+    }
+
+    XMLElement* modelsElement = groupElement->FirstChildElement("models");
+    if (modelsElement) {
+        for (XMLElement* modelElement = modelsElement->FirstChildElement("model"); modelElement; modelElement = modelElement->NextSiblingElement("model")) {
+            const char* file = modelElement->Attribute("file");
+            if (file) {
+                group.models.push_back(file);
+            }
+        }
+    }
+
+    for (XMLElement* childGroupElement = groupElement->FirstChildElement("group"); childGroupElement; childGroupElement = childGroupElement->NextSiblingElement("group")) {
+        Group childGroup;
+        parseGroup(childGroupElement, childGroup);
+        group.childGroups.push_back(childGroup);
+    }
+}
+
+void printGroup(const Group& group, int depth = 0) {
+    string indent(depth * 2, ' ');
+
+    for (const auto& model : group.models) {
+        cout << indent << "Model: " << model << endl;
+    }
+
+    for (const auto& transformation : group.transformations) {
+        cout << indent << "Transformation: ";
+        switch (transformation.type) {
+            case Transformation::Type::Translate:
+                cout << "Translate (" << transformation.coords.x << ", " << transformation.coords.y << ", " << transformation.coords.z << ")";
+                break;
+            case Transformation::Type::Rotate:
+                cout << "Rotate (angle=" << transformation.angle << ", axis=(" << transformation.coords.x << ", " << transformation.coords.y << ", " << transformation.coords.z << "))";
+                break;
+            case Transformation::Type::Scale:
+                cout << "Scale (" << transformation.coords.x << ", " << transformation.coords.y << ", " << transformation.coords.z << ")";
+                break;
+        }
+        cout << endl;
+    }
+
+    for (const auto& childGroup : group.childGroups) {
+        cout << indent << "Child Group:" << endl;
+        printGroup(childGroup, depth + 1); // Increase depth for indentation
+    }
+}
+
 World *parse_scene(string filepath) {
     XMLDocument doc;
     XMLError result = doc.LoadFile(filepath.c_str());
@@ -62,22 +138,12 @@ World *parse_scene(string filepath) {
         }
     }
 
-    XMLElement* groupElement = rootElement->FirstChildElement("group");
-    if (groupElement) {
-        XMLElement* modelsElement = groupElement->FirstChildElement("models");
-        if (modelsElement) {
-            for (XMLElement* modelElement = modelsElement->FirstChildElement("model");
-                 modelElement != nullptr;
-                 modelElement = modelElement->NextSiblingElement("model")) {
-
-                const char* file = modelElement->Attribute("file");
-                if (file) {
-                    // Simply add the filename to the vector of strings
-                    world->models.push_back(file);
-                }
-                 }
-        }
+    for(XMLElement* groupElement = rootElement->FirstChildElement("group"); groupElement; groupElement = groupElement->NextSiblingElement("group")){
+        Group group;
+        parseGroup(groupElement, group);
+        world->groups.push_back(group);
     }
+
 
     std::cout << "Window: " << world->window.width << "x" << world->window.height << std::endl;
 
@@ -92,10 +158,13 @@ World *parse_scene(string filepath) {
               << ", Near=" << world->camera.projection.near
               << ", Far=" << world->camera.projection.far << std::endl;
 
-    std::cout << "Models:" << std::endl;
-    for (const std::string& filename : world->models) {
-        std::cout << "  " << filename << std::endl;
+    std::cout << "Groups:" << std::endl;
+    for (const auto& group : world->groups) {
+        cout << "Group:" << endl;
+        printGroup(group, 1);
     }
+
+    cout << endl;
 
     return world;
 }

@@ -5,19 +5,26 @@
 #include <vector>
 #include <string>
 #include <GL/glut.h>
+#include <unordered_set>
 
 World world = {};
 std::vector<Model> models;
 
-float translateX = 0.0f;
-float translateZ = 0.0f;
-float rotationAngle = 0.0f;
-float height = 2.0f;
+float camX, camY, camZ;
+float lookAtX, lookAtY, lookAtZ;
+float upX, upY, upZ;
+
+float hAngle = 0.0f;   // Horizontal angle (left/right)
+float vAngle = 0.0f; // Vertical angle (up/down)
+float speed = 0.1f; // Movement speed
+
+float fov = 45.0f;
+
+bool mouseLeftDown = false;
+int lastMouseX = -1, lastMouseY = -1;
 
 void changeSize(int w, int h) {
 
-	// Prevent a divide by zero, when window is too short
-	// (you cant make a window with zero width).
 	if(h == 0)
 		h = 1;
 
@@ -33,7 +40,7 @@ void changeSize(int w, int h) {
     glViewport(0, 0, w, h);
 
 	// Set perspective
-	gluPerspective(45.0f ,ratio, 1.0f ,1000.0f);
+	gluPerspective(fov ,ratio, 1.0f ,1000.0f);
 
 	// return to the model view matrix mode
 	glMatrixMode(GL_MODELVIEW);
@@ -46,15 +53,12 @@ void renderScene() {
 
     // set the camera
     glLoadIdentity();
-    gluLookAt(world.camera.position.x,world.camera.position.y,world.camera.position.z,
-              world.camera.lookAt.x, world.camera.lookAt.y, world.camera.lookAt.z,
-              world.camera.up.x,world.camera.up.y,world.camera.up.z);
-
-    //glTranslatef(translateX, 0.0f, translateZ);
-    //glRotatef(rotationAngle, 0.0f, 1.0f, 0.0f);
+    gluLookAt(camX,camY,camZ,
+              lookAtX, lookAtY, lookAtZ,
+              upX, upY, upZ);
 
     //desenhar eixos
-    /*glBegin(GL_LINES);
+    glBegin(GL_LINES);
     // X Red
     glColor3f(1.0f, 0.0f, 0.0f);
     glVertex3f(-100.0f, 0.0f, 0.0f);
@@ -67,9 +71,26 @@ void renderScene() {
     glColor3f(0.0f, 0.0f, 1.0f);
     glVertex3f(0.0f, 0.0f, -100.0f);
     glVertex3f(0.0f, 0.0f, 100.0f);
-    glEnd();*/
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glEnd();
 
 	for (const auto& model : models) {
+        glPushMatrix();
+
+        for (const auto& transformation : model.transformations) {
+            switch (transformation.type) {
+                case Transformation::Type::Translate:
+                    glTranslatef(transformation.coords.x, transformation.coords.y, transformation.coords.z);
+                    break;
+                case Transformation::Type::Rotate:
+                    glRotatef(transformation.angle, transformation.coords.x, transformation.coords.y, transformation.coords.z);
+                    break;
+                case Transformation::Type::Scale:
+                    glScalef(transformation.coords.x, transformation.coords.y, transformation.coords.z);
+                    break;
+            }
+        }
+
 		glBegin(GL_TRIANGLES);
 
 		// Process each triangle
@@ -92,57 +113,131 @@ void renderScene() {
 
 		// End triangle drawing
 		glEnd();
+
+        glPopMatrix();
 	}
 
-
-
-    // put pyramid drawing instructions here
-
-
-    // End of frame
     glutSwapBuffers();
 }
 
-void processKeys(unsigned char key, int x, int y){
-	switch (key) {
-		case 'd': // when 'd' is pressed
-			translateX += 0.1f; // increment X position
-		glutPostRedisplay(); // request a redraw
-		break;
-		case 'a':
-			translateX -= 0.1f; // increment X position
-		glutPostRedisplay(); // request a redraw
-		break;
-		case 'w': // when 'd' is pressed
-			translateZ -= 0.1f; // increment X position
-		glutPostRedisplay(); // request a redraw
-		break;
-		case 's':
-			translateZ += 0.1f; // increment X position
-		glutPostRedisplay(); // request a redraw
-		break;
-	}
+void updateCamera() {
+    lookAtX = camX + cos(hAngle) * cos(vAngle);
+    lookAtY = camY + sin(vAngle);
+    lookAtZ = camZ + sin(hAngle) * cos(vAngle);
 }
 
-void processKeysSpecial(int key, int x, int y){
-	switch (key) {
-		case GLUT_KEY_UP: // when 'd' is pressed
-			height += 0.1f; // increment X position
-		glutPostRedisplay(); // request a redraw
-		break;
-		case GLUT_KEY_DOWN:
-			height -= 0.1f; // increment X position
-		glutPostRedisplay(); // request a redraw
-		break;
-		case GLUT_KEY_RIGHT: // when 'd' is pressed
-			rotationAngle += 5.0f; // increment X position
-		glutPostRedisplay(); // request a redraw
-		break;
-		case GLUT_KEY_LEFT:
-			rotationAngle -= 5.0f; // increment X position
-		glutPostRedisplay(); // request a redraw
-		break;
-	}
+void processKeys(unsigned char key, int x, int y){
+    switch (key) {
+        case 'w': // Move forward
+            camX += speed * cos(hAngle);
+            camZ += speed * sin(hAngle);
+            break;
+        case 's': // Move backward
+            camX -= speed * cos(hAngle);
+            camZ -= speed * sin(hAngle);
+            break;
+        case 'a': // Move left
+            camX += speed * sin(hAngle);
+            camZ -= speed * cos(hAngle);
+            break;
+        case 'd': // Move right
+            camX -= speed * sin(hAngle);
+            camZ += speed * cos(hAngle);
+            break;
+        case 'q': // Move up
+            camY += speed;
+            break;
+        case 'e': // Move down
+            camY -= speed;
+            break;
+        case '+': // Increase movement speed
+            speed *= 1.1f;
+            std::cout << "Speed: " << speed << std::endl;
+            break;
+        case '-': // Decrease movement speed
+            speed *= 0.9f;
+            std::cout << "Speed: " << speed << std::endl;
+            break;
+    }
+    updateCamera();
+    glutPostRedisplay();
+}
+
+void processMouseMotion(int x, int y) {
+    // Only process if the left button is down and we have a valid last position
+    if (!mouseLeftDown || lastMouseX == -1 || lastMouseY == -1) {
+        return;
+    }
+
+    // Calculate movement delta
+    int deltaX = x - lastMouseX;
+    int deltaY = y - lastMouseY;
+
+    // Very small sensitivity for smoother motion
+    const float sensitivity = 0.002f;
+
+    // Apply the changes
+    hAngle += deltaX * sensitivity;
+    vAngle += deltaY * sensitivity;
+
+    // Clamp vertical angle
+    const float maxVAngle = M_PI / 2.0f - 0.01f;
+    if (vAngle > maxVAngle) vAngle = maxVAngle;
+    if (vAngle < -maxVAngle) vAngle = -maxVAngle;
+
+    // Save the current position for the next frame
+    lastMouseX = x;
+    lastMouseY = y;
+
+    // Update the camera view
+    updateCamera();
+    glutPostRedisplay();
+}
+
+void processMouseButtons(int button, int state, int x, int y) {
+
+    if (button == GLUT_LEFT_BUTTON) {
+        if (state == GLUT_DOWN) {
+            mouseLeftDown = true;
+            // Only initialize lastMouse position when button is first pressed
+            lastMouseX = x;
+            lastMouseY = y;
+        } else {
+            mouseLeftDown = false;
+            // Important: Reset the last position when the button is released
+            lastMouseX = -1;
+            lastMouseY = -1;
+        }
+    }
+
+    // Handle mouse wheel scrolling
+    if (state == GLUT_DOWN) {
+
+        if (button == 3) {  // Scroll up - zoom in
+            fov -= 2.0f;
+            if (fov < 10.0f) fov = 10.0f; // Min FOV
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            int width = glutGet(GLUT_WINDOW_WIDTH);
+            int height = glutGet(GLUT_WINDOW_HEIGHT);
+            float ratio = width * 1.0f / height;
+            gluPerspective(fov, ratio, 0.1f, 1000.0f);
+            glMatrixMode(GL_MODELVIEW);
+
+        } else if (button == 4) {  // Scroll down - zoom out
+            fov += 2.0f;
+            if (fov > 90.0f) fov = 90.0f; // Max FOV
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            int width = glutGet(GLUT_WINDOW_WIDTH);
+            int height = glutGet(GLUT_WINDOW_HEIGHT);
+            float ratio = width * 1.0f / height;
+            gluPerspective(fov, ratio, 0.1f, 1000.0f);
+            glMatrixMode(GL_MODELVIEW);
+        }
+    }
+    updateCamera();
+    glutPostRedisplay();
 }
 
 
@@ -192,20 +287,52 @@ bool readModelFromFile(const std::string& filename, Model& model) {
     return true;
 }
 
+void loadModelsGroup(const Group& group,  const std::vector<Transformation>& parentTransformations, std::unordered_set<std::string>& groupLoadedModels) {
+
+    std::vector<Transformation> transformations = parentTransformations;
+    transformations.insert(transformations.end(), group.transformations.begin(), group.transformations.end());
+
+    for (const auto& filename : group.models) {
+        if (groupLoadedModels.find(filename) != groupLoadedModels.end()) {
+            std::cout << "Model from " << filename << " already loaded in this group, skipping..." << std::endl;
+            continue;
+        }
+        Model model;
+        if (readModelFromFile(filename, model)) {
+            groupLoadedModels.insert(filename);
+            model.transformations = transformations;
+            models.push_back(model);
+            std::cout << "Successfully loaded model from " << filename << std::endl;
+        } else {
+            std::cerr << "Failed to load model from " << filename << std::endl;
+        }
+    }
+
+    for (const auto& childGroup : group.childGroups) {
+        loadModelsGroup(childGroup, transformations, groupLoadedModels);
+    }
+}
+
 void loadModels() {
-	for (const auto& filename : world.models) {
-		Model model;
-		if (readModelFromFile(filename, model)) {
-			models.push_back(model);
-			std::cout << "Successfully loaded model from " << filename << std::endl;
-		} else {
-			std::cerr << "Failed to load model from " << filename << std::endl;
-		}
-	}
+    for(const auto& group : world.groups){
+        std::unordered_set<std::string> groupLoadedModels;
+        loadModelsGroup(group, {}, groupLoadedModels);
+    }
 }
 
 void run_engine(World new_world, int argc, char **argv) {
 	world = new_world;
+
+    camX = world.camera.position.x;
+    camY = world.camera.position.y;
+    camZ = world.camera.position.z;
+    lookAtX = world.camera.lookAt.x;
+    lookAtY = world.camera.lookAt.y;
+    lookAtZ = world.camera.lookAt.z;
+    upX = world.camera.up.x;
+    upY = world.camera.up.y;
+    upZ = world.camera.up.z;
+
 	loadModels();
     // init GLUT and the window
     glutInit(&argc, argv);
@@ -220,7 +347,8 @@ void run_engine(World new_world, int argc, char **argv) {
 
     // put here the registration of the keyboard callbacks
 	glutKeyboardFunc(processKeys);
-	glutSpecialFunc(processKeysSpecial);
+    glutMotionFunc(processMouseMotion);
+    glutMouseFunc(processMouseButtons);
 
     //  OpenGL settings
     glEnable(GL_DEPTH_TEST);
@@ -229,4 +357,5 @@ void run_engine(World new_world, int argc, char **argv) {
 
     // enter GLUT's main cycle
     glutMainLoop();
+
 }

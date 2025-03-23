@@ -5,6 +5,7 @@
 #include <vector>
 #include <vertex.h>
 
+
 struct Window {
     int width;
     int height;
@@ -23,10 +24,28 @@ struct Camera {
     Projection projection;
 };
 
+struct Transformation{
+    enum class Type {
+        Translate,
+        Rotate,
+        Scale
+    };
+
+    Type type;
+    Vertex3f coords;
+    float angle;
+};
+
+struct Group {
+    std::vector<Transformation> transformations;
+    std::vector<std::string> models;
+    std::vector<Group> childGroups;
+};
+
 struct World {
     Window window;
     Camera camera;
-    std::vector<std::string> models;
+    std::vector<Group> groups;
 };
 
 #endif
