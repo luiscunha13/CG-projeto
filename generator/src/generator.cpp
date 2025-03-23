@@ -152,7 +152,9 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
     const float stack_size = height / stacks;
     const double slice_size = 2 * M_PI / slices;
 
+    cout << "Vertices" << endl;
     const Vertex3f base_center = {0, 0, 0};
+    cout << 0 << 0  << 0 << endl;
     vertices.push_back(base_center);
 
     for (int slice = 0; slice <= slices; ++slice) {
@@ -164,10 +166,12 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
             float current_z = current_radius * sin(angle);
             float current_y = stack * stack_size;
 
+            cout << current_x << current_y  << current_z << endl;
             vertices.push_back({current_x, current_y, current_z});
         }
     }
 
+    cout << "Indices" << endl;
     for (int slice = 0; slice < slices; ++slice) {
         for (int stack = 0; stack < stacks; ++stack) {
             uint32_t bottom_left_index = 1 + stack + (slice * (stacks + 1));
@@ -176,20 +180,128 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
             uint32_t top_left_index = bottom_left_index + 1;
             uint32_t top_right_index = bottom_right_index + 1;
 
+            cout << top_left_index << " " << bottom_left_index<< " " << bottom_right_index << endl;
             add3Items(top_left_index, bottom_left_index, bottom_right_index, indexes);
 
-            if (stack != stacks - 1)
+            if (stack != stacks - 1){
+                cout << top_left_index << " " << bottom_right_index<< " " << top_right_index << endl;
                 add3Items(top_left_index, bottom_right_index, top_right_index, indexes);
+            }
+
         }
 
         uint32_t base_left_index = 1 + (slice * (stacks + 1));
         uint32_t base_right_index = base_left_index + stacks + 1;
 
-        indexes.insert(indexes.end(), {base_right_index, base_left_index, 0}); // base triangle
+        cout << base_right_index << " " << base_left_index<< " " << 0 << endl;
+        add3Items(base_right_index, base_left_index, 0, indexes); // base triangle
     }
 
     return {vertices, indexes};
 }
+
+Generator generateCylinder(float radius, float height, unsigned int slices) {
+    vector<Vertex3f> vertices;
+    vector<uint32_t> indexes;
+
+    const double slice_size = 2 * M_PI / slices;
+
+    cout << "Vertices" << endl;
+    const Vertex3f base_center = {0, 0, 0};
+    const Vertex3f top_center = {0, height, 0};
+    cout << 0 << 0 << 0 << endl;
+    cout << 0 << height << 0 << endl;
+    vertices.push_back(base_center);
+    vertices.push_back(top_center);
+
+
+    for (int slice = 0; slice <= slices; ++slice) {
+        float angle = slice * slice_size;
+        float cosA = cos(angle);
+        float sinA = sin(angle);
+
+        cout << radius * cosA << 0 << radius * sinA << endl;
+        vertices.push_back({radius * cosA, 0, radius * sinA});
+        cout << radius * cosA << height << radius * sinA << endl;
+        vertices.push_back({radius * cosA, height, radius * sinA});
+    }
+
+    cout << "Indices" << endl;
+    for (int slice = 0; slice < slices; ++slice) {
+        uint32_t bottom_left_index = 2 + (slice * 2);
+        uint32_t bottom_right_index = 2 + ((slice + 1) * 2);
+
+        uint32_t top_left_index = bottom_left_index + 1;
+        uint32_t top_right_index = bottom_right_index + 1;
+
+        uint32_t base_left_index = 2 + (slice * 2);
+        uint32_t base_right_index = 2 + ((slice + 1) * 2);
+
+        // First triangle (bottom left, top left, bottom right)
+        cout << bottom_left_index << " " << top_left_index<< " " << bottom_right_index << endl;
+        add3Items(bottom_left_index, top_left_index, bottom_right_index, indexes);
+
+        // Second triangle (top left, top right, bottom right)
+        cout << top_left_index << " " << top_right_index<< " " << bottom_right_index << endl;
+        add3Items(top_left_index, top_right_index, bottom_right_index, indexes);
+
+        // Base triangle (base center, base left, base right)
+        cout << 0 << " " << base_left_index<< " " << base_right_index << endl;
+        add3Items(0, base_left_index, base_right_index, indexes);
+
+        // Top triangle (top center, top right, top left)
+        cout << 1 << " " << top_right_index<< " " << top_left_index << endl;
+        add3Items(1, top_right_index, top_left_index, indexes);
+    }
+
+
+    return {vertices, indexes};
+}
+
+Generator generateTorus(float outerRadius, float innerRadius, unsigned int slices, unsigned int stacks) {
+    vector<Vertex3f> vertices;
+    vector<uint32_t> indexes;
+
+    const float sliceStep = 2 * M_PI / slices;
+    const float stackStep = 2 * M_PI / stacks;
+
+    cout << "Vertices" << endl;
+    for (unsigned int i = 0; i <= slices; ++i) {
+        float sliceAngle = i * sliceStep;
+        float cosSlice = cos(sliceAngle);
+        float sinSlice = sin(sliceAngle);
+
+        for (unsigned int j = 0; j <= stacks; ++j) {
+            float stackAngle = j * stackStep;
+            float cosStack = cos(stackAngle);
+            float sinStack = sin(stackAngle);
+
+            // Calculate vertex position
+            float x = (majorRadius + minorRadius * cosStack) * cosSlice;
+            float y = (majorRadius + minorRadius * cosStack) * sinSlice;
+            float z = minorRadius * sinStack;
+
+            cout << x << y << z << endl;
+            vertices.push_back({x, y, z});
+        }
+    }
+
+    cout << "Indices" << endl;
+    for (unsigned int i = 0; i < slices; ++i) {
+        for (unsigned int j = 0; j < stacks; ++j) {
+            uint32_t current = i * (stacks + 1) + j;
+            uint32_t next = current + stacks + 1;
+
+            cout << current << " " << next << " " << current+1 << endl;
+            cout << next << " " << next+1 << " " << current+1 << endl;
+            add3Items(current, next, current + 1,indexes);
+            add3Items(next, next + 1, current + 1,indexes);
+        }
+    }
+
+    return {vertices, indexes};
+}
+
 
 bool SaveModel(const Generator &result, const std::string &filename)
     {
