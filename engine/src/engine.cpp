@@ -120,6 +120,40 @@ void renderScene() {
     glutSwapBuffers();
 }
 
+void initializeCamera() {
+    camX = world.camera.position.x;
+    camY = world.camera.position.y;
+    camZ = world.camera.position.z;
+
+    lookAtX = world.camera.lookAt.x;
+    lookAtY = world.camera.lookAt.y;
+    lookAtZ = world.camera.lookAt.z;
+
+    upX = world.camera.up.x;
+    upY = world.camera.up.y;
+    upZ = world.camera.up.z;
+
+    // initial angles
+    float dx = lookAtX - camX;
+    float dy = lookAtY - camY;
+    float dz = lookAtZ - camZ;
+
+    // horizontal angle
+    hAngle = atan2(dz, dx);
+
+    // vertical angle
+    float horizontalDistance = sqrt(dx*dx + dz*dz);
+    vAngle = atan2(dy, horizontalDistance);
+
+    // Print initial camera state for debugging
+    std::cout << "Initial Camera Position: ("
+              << camX << ", " << camY << ", " << camZ << ")" << std::endl;
+    std::cout << "Initial Look-At: ("
+              << lookAtX << ", " << lookAtY << ", " << lookAtZ << ")" << std::endl;
+    std::cout << "Initial Angles - Horizontal: " << hAngle
+              << ", Vertical: " << vAngle << std::endl;
+}
+
 void updateCamera() {
     lookAtX = camX + cos(hAngle) * cos(vAngle);
     lookAtY = camY + sin(vAngle);
@@ -177,7 +211,7 @@ void processMouseMotion(int x, int y) {
     const float sensitivity = 0.002f;
 
     // Apply the changes
-    hAngle += deltaX * sensitivity;
+    hAngle -= deltaX * sensitivity;
     vAngle += deltaY * sensitivity;
 
     // Clamp vertical angle
@@ -323,15 +357,7 @@ void loadModels() {
 void run_engine(World new_world, int argc, char **argv) {
 	world = new_world;
 
-    camX = world.camera.position.x;
-    camY = world.camera.position.y;
-    camZ = world.camera.position.z;
-    lookAtX = world.camera.lookAt.x;
-    lookAtY = world.camera.lookAt.y;
-    lookAtZ = world.camera.lookAt.z;
-    upX = world.camera.up.x;
-    upY = world.camera.up.y;
-    upZ = world.camera.up.z;
+    initializeCamera();
 
 	loadModels();
     // init GLUT and the window
@@ -354,6 +380,8 @@ void run_engine(World new_world, int argc, char **argv) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 	glPolygonMode(GL_FRONT, GL_LINE);
+
+    updateCamera();
 
     // enter GLUT's main cycle
     glutMainLoop();
