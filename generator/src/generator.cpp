@@ -194,7 +194,7 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
         uint32_t base_right_index = base_left_index + stacks + 1;
 
         cout << base_right_index << " " << base_left_index<< " " << 0 << endl;
-        add3Items(base_right_index, base_left_index, 0, indexes); // base triangle
+        add3Items(base_right_index, base_left_index, (uint32_t)0, indexes); // base triangle
     }
 
     return {vertices, indexes};
@@ -247,11 +247,11 @@ Generator generateCylinder(float radius, float height, unsigned int slices) {
 
         // Base triangle (base center, base left, base right)
         cout << 0 << " " << base_left_index<< " " << base_right_index << endl;
-        add3Items(0, base_left_index, base_right_index, indexes);
+        add3Items((uint32_t)0, base_left_index, base_right_index, indexes);
 
         // Top triangle (top center, top right, top left)
         cout << 1 << " " << top_right_index<< " " << top_left_index << endl;
-        add3Items(1, top_right_index, top_left_index, indexes);
+        add3Items((uint32_t)1, top_right_index, top_left_index, indexes);
     }
 
 
@@ -277,9 +277,9 @@ Generator generateTorus(float outerRadius, float innerRadius, unsigned int slice
             float sinStack = sin(stackAngle);
 
             // Calculate vertex position
-            float x = (majorRadius + minorRadius * cosStack) * cosSlice;
-            float y = (majorRadius + minorRadius * cosStack) * sinSlice;
-            float z = minorRadius * sinStack;
+            float x = (outerRadius + innerRadius * cosStack) * cosSlice;
+            float y = (outerRadius + innerRadius * cosStack) * sinSlice;
+            float z = innerRadius * sinStack;
 
             cout << x << y << z << endl;
             vertices.push_back({x, y, z});

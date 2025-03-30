@@ -18,6 +18,8 @@ namespace generator{
     Generator generateBox(float length, int divisions);
     Generator generateSphere(float radius, int slices, int stacks);
     Generator generateCone(float radius, float height, unsigned int slices, unsigned int stacks);
+    Generator generateCylinder(float radius, float height, unsigned int slices);
+    Generator generateTorus(float outerRadius, float innerRadius, unsigned int slices, unsigned int stacks);
 
     bool SaveModel(const Generator& generator, const std::string& filename);
 

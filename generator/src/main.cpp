@@ -9,7 +9,9 @@ const string commands[] = {
     "generator plane <size> <divisions> <filename>",
     "generator box <size> <divisions> <filename>",
     "generator sphere <radius> <slices> <stacks> <filename>",
-    "generator cone <radius> <height> <slices> <stacks> <filename>"
+    "generator cone <radius> <height> <slices> <stacks> <filename>",
+    "generator cylinder <radius> <height> <slices> <filename>",
+    "generator torus <inner_radius> <outer_radius> <slices> <stacks> <filename>",
 };
 
 void print_usage() {
@@ -29,7 +31,12 @@ void print_command_usage(const string &figure) {
         cout << commands[2] << endl;
     } else if (figure == "cone") {
         cout << commands[3] << endl;
-    } else {
+    } else if (figure == "cylinder") {
+        cout << commands[4] << endl;
+    } else if (figure == "torus") {
+        cout << commands[5] << endl;
+    }
+    else {
         cout << "Invalid figure. ";
         print_usage();
     }
@@ -105,6 +112,41 @@ int main(const int argc, char *argv[]){
             unsigned int stacks = stoi(argv[5]);
             SaveModel(generator::generateCone(radius, height, slices, stacks), argv[6]);
             cout << "Successfully saved the Cone model." << endl;
+        }
+        catch (const std::logic_error &) {
+            cerr << "Error parsing the arguments of " << figure << endl;
+            return 1;
+        }
+    } else if (figure == "cylinder") {
+        if (argc != 6) {
+            print_command_usage(figure);
+            return 1;
+        }
+
+        try {
+            float radius = stof(argv[2]);
+            float height = stof(argv[3]);
+            unsigned int slices = stoi(argv[4]);
+            SaveModel(generator::generateCylinder(radius, height, slices), argv[5]);
+            cout << "Successfully saved the Cylinder model." << endl;
+        }
+        catch (const std::logic_error &) {
+            cerr << "Error parsing the arguments of " << figure << endl;
+            return 1;
+        }
+    } else if (figure == "torus") {
+        if (argc != 7) {
+            print_command_usage(figure);
+            return 1;
+        }
+
+        try {
+            float inner_radius = stof(argv[2]);
+            float outer_radius = stof(argv[3]);
+            unsigned int slices = stoi(argv[4]);
+            unsigned int stacks = stoi(argv[5]);
+            SaveModel(generator::generateTorus(outer_radius, inner_radius, slices, stacks), argv[6]);
+            cout << "Successfully saved the Torus model." << endl;
         }
         catch (const std::logic_error &) {
             cerr << "Error parsing the arguments of " << figure << endl;
