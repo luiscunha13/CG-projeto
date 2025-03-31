@@ -234,8 +234,6 @@ Generator generateCylinder(float radius, float height, unsigned int slices) {
         uint32_t top_left_index = bottom_left_index + 1;
         uint32_t top_right_index = bottom_right_index + 1;
 
-        uint32_t base_left_index = 2 + (slice * 2);
-        uint32_t base_right_index = 2 + ((slice + 1) * 2);
 
         // First triangle (bottom left, top left, bottom right)
         cout << bottom_left_index << " " << top_left_index<< " " << bottom_right_index << endl;
@@ -246,8 +244,8 @@ Generator generateCylinder(float radius, float height, unsigned int slices) {
         add3Items(top_left_index, top_right_index, bottom_right_index, indexes);
 
         // Base triangle (base center, base left, base right)
-        cout << 0 << " " << base_left_index<< " " << base_right_index << endl;
-        add3Items((uint32_t)0, base_left_index, base_right_index, indexes);
+        cout << 0 << " " << bottom_left_index<< " " << bottom_right_index << endl;
+        add3Items((uint32_t)0, bottom_left_index, bottom_right_index, indexes);
 
         // Top triangle (top center, top right, top left)
         cout << 1 << " " << top_right_index<< " " << top_left_index << endl;
@@ -262,21 +260,20 @@ Generator generateTorus(float outerRadius, float innerRadius, unsigned int slice
     vector<Vertex3f> vertices;
     vector<uint32_t> indexes;
 
-    const float sliceStep = 2 * M_PI / slices;
-    const float stackStep = 2 * M_PI / stacks;
+    const float slice_size = 2 * M_PI / slices;
+    const float stack_size = 2 * M_PI / stacks;
 
     cout << "Vertices" << endl;
     for (unsigned int i = 0; i <= slices; ++i) {
-        float sliceAngle = i * sliceStep;
+        float sliceAngle = i * slice_size;
         float cosSlice = cos(sliceAngle);
         float sinSlice = sin(sliceAngle);
 
         for (unsigned int j = 0; j <= stacks; ++j) {
-            float stackAngle = j * stackStep;
+            float stackAngle = j * stack_size;
             float cosStack = cos(stackAngle);
             float sinStack = sin(stackAngle);
 
-            // Calculate vertex position
             float x = (outerRadius + innerRadius * cosStack) * cosSlice;
             float y = (outerRadius + innerRadius * cosStack) * sinSlice;
             float z = innerRadius * sinStack;

@@ -16,7 +16,7 @@ float upX, upY, upZ;
 
 float hAngle = 0.0f;   // Horizontal angle (left/right)
 float vAngle = 0.0f; // Vertical angle (up/down)
-float speed = 0.1f; // Movement speed
+float speed = 1.0f; // Movement speed
 
 float fov = 45.0f;
 
@@ -321,19 +321,14 @@ bool readModelFromFile(const std::string& filename, Model& model) {
     return true;
 }
 
-void loadModelsGroup(const Group& group,  const std::vector<Transformation>& parentTransformations, std::unordered_set<std::string>& groupLoadedModels) {
+void loadModelsGroup(const Group& group,  const std::vector<Transformation>& parentTransformations) {
 
     std::vector<Transformation> transformations = parentTransformations;
     transformations.insert(transformations.end(), group.transformations.begin(), group.transformations.end());
 
     for (const auto& filename : group.models) {
-        if (groupLoadedModels.find(filename) != groupLoadedModels.end()) {
-            std::cout << "Model from " << filename << " already loaded in this group, skipping..." << std::endl;
-            continue;
-        }
         Model model;
         if (readModelFromFile(filename, model)) {
-            groupLoadedModels.insert(filename);
             model.transformations = transformations;
             models.push_back(model);
             std::cout << "Successfully loaded model from " << filename << std::endl;
@@ -343,14 +338,13 @@ void loadModelsGroup(const Group& group,  const std::vector<Transformation>& par
     }
 
     for (const auto& childGroup : group.childGroups) {
-        loadModelsGroup(childGroup, transformations, groupLoadedModels);
+        loadModelsGroup(childGroup, transformations);
     }
 }
 
 void loadModels() {
     for(const auto& group : world.groups){
-        std::unordered_set<std::string> groupLoadedModels;
-        loadModelsGroup(group, {}, groupLoadedModels);
+        loadModelsGroup(group, {});
     }
 }
 
