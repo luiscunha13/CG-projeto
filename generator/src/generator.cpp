@@ -96,11 +96,14 @@ Generator generateBox(float length, int divisions) {
                 const uint32_t top_right = top_left + 1;
                 const uint32_t bottom_left = offset + (i + 1) * (divisions + 1) + j;
                 const uint32_t bottom_right = bottom_left + 1;
-
-                cout << top_left << " " << bottom_left << " " << bottom_right << endl;
-                cout << top_left << " " << bottom_right << " " << top_right << endl;
-                add3Items(top_left, bottom_left, bottom_right, indexes);
-                add3Items(top_left, bottom_right, top_right, indexes);
+                
+                if (face == 1 || face == 2 || face == 4) {
+                    add3Items(top_left, bottom_right, bottom_left, indexes);
+                    add3Items(top_left, top_right, bottom_right, indexes);
+                } else {
+                    add3Items(top_left, bottom_left, bottom_right, indexes);
+                    add3Items(top_left, bottom_right, top_right, indexes);
+                }
             }
         }
     }
