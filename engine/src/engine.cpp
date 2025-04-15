@@ -93,25 +93,20 @@ void renderScene() {
 
 		glBegin(GL_TRIANGLES);
 
-		// Process each triangle
 		for (int i = 0; i < model.n_indices; i += 3) {
-			// Get indices for the three vertices of this triangle
 			unsigned int idx1 = model.indices[i];
 			unsigned int idx2 = model.indices[i + 1];
 			unsigned int idx3 = model.indices[i + 2];
 
-			// Get vertices
 			const Vertex3f& v1 = model.vertices[idx1];
 			const Vertex3f& v2 = model.vertices[idx2];
 			const Vertex3f& v3 = model.vertices[idx3];
 
-			// Draw the triangle
 			glVertex3f(v1.x, v1.y, v1.z);
 			glVertex3f(v2.x, v2.y, v2.z);
 			glVertex3f(v3.x, v3.y, v3.z);
 		}
 
-		// End triangle drawing
 		glEnd();
 
         glPopMatrix();

@@ -20,6 +20,7 @@ namespace generator{
     Generator generateCone(float radius, float height, unsigned int slices, unsigned int stacks);
     Generator generateCylinder(float radius, float height, unsigned int slices);
     Generator generateTorus(float outerRadius, float innerRadius, unsigned int slices, unsigned int stacks);
+    Generator generateBezier(const std::string& patchFile, int tessellation);
 
     bool SaveModel(const Generator& generator, const std::string& filename);
 

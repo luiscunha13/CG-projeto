@@ -12,6 +12,7 @@ const string commands[] = {
     "generator cone <radius> <height> <slices> <stacks> <filename>",
     "generator cylinder <radius> <height> <slices> <filename>",
     "generator torus <inner_radius> <outer_radius> <slices> <stacks> <filename>",
+    "generator bezier <patch_file> <tessellation> <filename>",
 };
 
 void print_usage() {
@@ -35,6 +36,9 @@ void print_command_usage(const string &figure) {
         cout << commands[4] << endl;
     } else if (figure == "torus") {
         cout << commands[5] << endl;
+    }
+    else if(figure == "bezier") {
+        cout << commands[6] << endl;
     }
     else {
         cout << "Invalid figure. ";
@@ -147,6 +151,22 @@ int main(const int argc, char *argv[]){
             unsigned int stacks = stoi(argv[5]);
             SaveModel(generator::generateTorus(outer_radius, inner_radius, slices, stacks), argv[6]);
             cout << "Successfully saved the Torus model." << endl;
+        }
+        catch (const std::logic_error &) {
+            cerr << "Error parsing the arguments of " << figure << endl;
+            return 1;
+        }
+    } else if (figure == "bezier") {
+        if (argc != 5) {
+            print_command_usage(figure);
+            return 1;
+        }
+
+        try {
+            string patchFile = argv[2];
+            int tessellation = stoi(argv[3]);
+            SaveModel(generator::generateBezier(patchFile, tessellation), argv[4]);
+            cout << "Successfully saved the Bezier patch model." << endl;
         }
         catch (const std::logic_error &) {
             cerr << "Error parsing the arguments of " << figure << endl;

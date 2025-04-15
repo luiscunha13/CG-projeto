@@ -302,6 +302,97 @@ Generator generateTorus(float outerRadius, float innerRadius, unsigned int slice
     return {vertices, indexes};
 }
 
+Generator generateBezier(const std::string& patchFile, int tessellation) {
+    vector<Vertex3f> vertices;
+    vector<unsigned int> indexes;
+
+    ifstream file(patchFile);
+    if (!file.is_open()) {
+        cerr << "Error opening patch file: " << patchFile << endl;
+        return {vertices, indexes};
+    }
+
+    int numPatches;
+    if (!(file >> numPatches)) {
+        cerr << "Error reading number of patches" << endl;
+        return {vertices, indexes};
+    }
+
+    const float binom[4] = {1.0f, 3.0f, 3.0f, 1.0f};
+
+    vector<vector<vector<Vertex3f>>> patches(numPatches);
+    for (int p = 0; p < numPatches; ++p) {
+        patches[p].resize(4);
+        for (int i = 0; i < 4; ++i) {
+            patches[p][i].resize(4);
+            for (int j = 0; j < 4; ++j) {
+                if (!(file >> patches[p][i][j].x >> patches[p][i][j].y >> patches[p][i][j].z)) {
+                    cerr << "Error reading control point data" << endl;
+                    return {vertices, indexes};
+                }
+            }
+        }
+    }
+
+    cout << "Vertices" << endl;
+    for (const auto& patch : patches) {
+        const int baseIndex = vertices.size();
+
+        // Generate vertices
+        for (int i = 0; i <= tessellation; ++i) {
+            const float u = float(i) / tessellation;
+            const float u1 = 1.0f - u;
+
+            float Bu[4] = {
+                    u1 * u1 * u1,
+                    binom[1] * u1 * u1 * u,
+                    binom[2] * u1 * u * u,
+                    u * u * u
+            };
+
+            for (int j = 0; j <= tessellation; ++j) {
+                const float v = float(j) / tessellation;
+                const float v1 = 1.0f - v;
+
+                float Bv[4] = {
+                        v1 * v1 * v1,
+                        binom[1] * v1 * v1 * v,
+                        binom[2] * v1 * v * v,
+                        v * v * v
+                };
+
+                Vertex3f point = {0, 0, 0};
+                for (int k = 0; k < 4; ++k) {
+                    for (int l = 0; l < 4; ++l) {
+                        point.x += patch[k][l].x * Bu[k] * Bv[l];
+                        point.y += patch[k][l].y * Bu[k] * Bv[l];
+                        point.z += patch[k][l].z * Bu[k] * Bv[l];
+                    }
+                }
+
+                cout << point.x << point.y << point.z << endl;
+                vertices.push_back(point);
+            }
+        }
+
+        cout << "Indices" << endl;
+        for (int i = 0; i < tessellation; ++i) {
+            for (int j = 0; j < tessellation; ++j) {
+                const uint32_t topLeft = baseIndex + i * (tessellation + 1) + j;
+                const uint32_t topRight = topLeft + 1;
+                const uint32_t bottomLeft = topLeft + (tessellation + 1);
+                const uint32_t bottomRight = bottomLeft + 1;
+
+                cout << topLeft << " " << bottomLeft << " " << bottomRight << endl;
+                cout << topLeft << " " << bottomRight << " " << topRight << endl;
+                add3Items(topLeft, bottomLeft, bottomRight, indexes);
+                add3Items(topLeft, bottomRight, topRight, indexes);
+            }
+        }
+    }
+
+    return {vertices, indexes};
+}
 
 bool SaveModel(const Generator &result, const std::string &filename)
     {
