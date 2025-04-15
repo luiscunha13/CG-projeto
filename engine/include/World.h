@@ -34,6 +34,15 @@ struct Transformation{
     Type type;
     Vertex3f coords;
     float angle;
+
+    bool animated;
+
+    struct {
+        float time;
+        bool align;
+        std::vector<Vertex3f> points;
+    } animation;
+
 };
 
 struct Group {

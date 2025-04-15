@@ -23,6 +23,11 @@ float fov = 45.0f;
 bool mouseLeftDown = false;
 int lastMouseX = -1, lastMouseY = -1;
 
+float catmull_matrix[4][4] = {{-0.5f,  1.5f, -1.5f,  0.5f},
+                              { 1.0f, -2.5f,  2.0f, -0.5f},
+                              {-0.5f,  0.0f,  0.5f,  0.0f},
+                              { 0.0f,  1.0f,  0.0f,  0.0f}};
+
 void changeSize(int w, int h) {
 
 	if(h == 0)
@@ -44,6 +49,101 @@ void changeSize(int w, int h) {
 
 	// return to the model view matrix mode
 	glMatrixMode(GL_MODELVIEW);
+}
+
+void multMatrixVector(float *m, float *v, float *res) {
+    for (int j = 0; j < 4; ++j) {
+        res[j] = 0;
+        for (int k = 0; k < 4; ++k) {
+            res[j] += v[k] * m[j * 4 + k];
+        }
+    }
+}
+
+void getCatmullRomPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, float *deriv) {
+    // catmull-rom matrix
+    float m[4][4] = {   {-0.5f,  1.5f, -1.5f,  0.5f},
+                        { 1.0f, -2.5f,  2.0f, -0.5f},
+                        {-0.5f,  0.0f,  0.5f,  0.0f},
+                        { 0.0f,  1.0f,  0.0f,  0.0f}};
+
+    float a[4][3];
+    for (int i = 0; i < 3; i++) {
+        float p[4] = {p0[i], p1[i], p2[i], p3[i]};
+        float res[4];
+        multMatrixVector((float *)m, p, res);
+        a[0][i] = res[0];
+        a[1][i] = res[1];
+        a[2][i] = res[2];
+        a[3][i] = res[3];
+    }
+
+    // Compute pos = T * A
+    float t_vec[4] = {t*t*t, t*t, t, 1};
+    for (int i = 0; i < 3; i++) {
+        pos[i] = 0;
+        for (int j = 0; j < 4; j++) {
+            pos[i] += t_vec[j] * a[j][i];
+        }
+    }
+
+    // Compute deriv = T' * A
+    float t_deriv[4] = {3*t*t, 2*t, 1, 0};
+    for (int i = 0; i < 3; i++) {
+        deriv[i] = 0;
+        for (int j = 0; j < 4; j++) {
+            deriv[i] += t_deriv[j] * a[j][i];
+        }
+    }
+}
+
+Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt, float* rotationY = nullptr) {
+    int pointCount = points.size();
+    if (pointCount < 4) {
+        if (rotationY) *rotationY = 0.0f;
+        return Vertex3f{0,0,0};
+    }
+
+    float t = gt * pointCount; // this is the real global t
+    int index = floor(t);  // which segment
+    t = t - index; // where within the segment
+
+    // indices store the points
+    int indices[4];
+    indices[0] = (index + pointCount-1)%pointCount;
+    indices[1] = (indices[0]+1)%pointCount;
+    indices[2] = (indices[1]+1)%pointCount;
+    indices[3] = (indices[2]+1)%pointCount;
+
+    float p0[3] = {points[indices[0]].x, points[indices[0]].y, points[indices[0]].z};
+    float p1[3] = {points[indices[1]].x, points[indices[1]].y, points[indices[1]].z};
+    float p2[3] = {points[indices[2]].x, points[indices[2]].y, points[indices[2]].z};
+    float p3[3] = {points[indices[3]].x, points[indices[3]].y, points[indices[3]].z};
+
+    float pos[3], deriv[3];
+    getCatmullRomPoint(t, p0, p1, p2, p3, pos, deriv);
+
+    if (rotationY) {
+        *rotationY = atan2(deriv[2], deriv[0]);
+    }
+
+    return Vertex3f{pos[0], pos[1], pos[2]};
+}
+
+void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
+    if (points.size() < 4) return;  // Need at least 4 points for Catmull-Rom
+
+    glColor3f(1.0f, 1.0f, 1.0f);  // White color for the curve
+    glBegin(GL_LINE_LOOP);
+
+    // Draw 100 segments for smooth curve
+    for (int i = 0; i <= 100; ++i) {
+        float gt = (float)i / 100.0f;
+        Vertex3f point = getGlobalCatmullRomPoint(points, gt);
+        glVertex3f(point.x, point.y, point.z);
+    }
+
+    glEnd();
 }
 
 void renderScene() {
@@ -74,19 +174,77 @@ void renderScene() {
     glColor3f(1.0f, 1.0f, 1.0f);
     glEnd();
 
+    for (const auto& model : models) {
+        for (const auto& transformation : model.transformations) {
+            if (transformation.type == Transformation::Type::Translate &&
+                transformation.animated &&
+                transformation.animation.points.size() >= 4) {
+
+                renderCatmullRomCurve(transformation.animation.points);
+            }
+        }
+    }
+
+    int currentTime = glutGet(GLUT_ELAPSED_TIME);
+
 	for (const auto& model : models) {
         glPushMatrix();
 
         for (const auto& transformation : model.transformations) {
             switch (transformation.type) {
                 case Transformation::Type::Translate:
-                    glTranslatef(transformation.coords.x, transformation.coords.y, transformation.coords.z);
+                    if (transformation.animated) {
+                        // Time-based animation using elapsed time
+                        float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f; // convert to seconds
+                        float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
+
+                        // closed loops
+                        if (transformation.animation.points.size() > 1 &&
+                            transformation.animation.points.front() == transformation.animation.points.back()) {
+                            float adjustedTime = normalizedTime * (transformation.animation.points.size() - 1) /
+                                                 transformation.animation.points.size();
+                            normalizedTime = adjustedTime;
+                        }
+
+                        float rotationY = 0.0f;
+                        Vertex3f point = getGlobalCatmullRomPoint(
+                                transformation.animation.points, normalizedTime,
+                                transformation.animation.align ? &rotationY : nullptr);
+
+                        glTranslatef(point.x, point.y, point.z);
+
+                        if (transformation.animation.align) {
+                            glRotatef(rotationY * 180.0f / M_PI, 0.0f, 1.0f, 0.0f);
+                        }
+                    } else {
+                        glTranslatef(transformation.coords.x,
+                                     transformation.coords.y,
+                                     transformation.coords.z);
+                    }
                     break;
+
                 case Transformation::Type::Rotate:
-                    glRotatef(transformation.angle, transformation.coords.x, transformation.coords.y, transformation.coords.z);
+                    if (transformation.animated) {
+                        // Time-based
+                        float elapsedTime = currentTime / 1000.0f;
+                        float angle = fmod(360.0f * elapsedTime / transformation.animation.time, 360.0f);
+                        glRotatef(angle,
+                                  transformation.coords.x,
+                                  transformation.coords.y,
+                                  transformation.coords.z);
+                    } else {
+                        // Static
+                        glRotatef(transformation.angle,
+                                  transformation.coords.x,
+                                  transformation.coords.y,
+                                  transformation.coords.z);
+                    }
                     break;
+
                 case Transformation::Type::Scale:
-                    glScalef(transformation.coords.x, transformation.coords.y, transformation.coords.z);
+                    glScalef(transformation.coords.x,
+                              transformation.coords.y,
+                              transformation.coords.z);
                     break;
             }
         }
@@ -113,6 +271,7 @@ void renderScene() {
 	}
 
     glutSwapBuffers();
+    glutPostRedisplay();
 }
 
 void initializeCamera() {

@@ -13,15 +13,44 @@ void parseTransformation(XMLElement* transformElement, Group& group) {
         Transformation transformation;
         if (strcmp(element->Name(), "translate") == 0) {
             transformation.type = Transformation::Type::Translate;
-            element->QueryFloatAttribute("x", &transformation.coords.x);
-            element->QueryFloatAttribute("y", &transformation.coords.y);
-            element->QueryFloatAttribute("z", &transformation.coords.z);
+            if (element->QueryFloatAttribute("time", &transformation.animation.time) == XML_SUCCESS) {
+                // Time-based
+                transformation.animated = true;
+                transformation.animation.align = element->BoolAttribute("align", false);
+
+                for (XMLElement* pointElement = element->FirstChildElement("point");
+                     pointElement;
+                     pointElement = pointElement->NextSiblingElement("point")) {
+
+                    Vertex3f point;
+                    pointElement->QueryFloatAttribute("x", &point.x);
+                    pointElement->QueryFloatAttribute("y", &point.y);
+                    pointElement->QueryFloatAttribute("z", &point.z);
+                    transformation.animation.points.push_back(point);
+                }
+            } else {
+                // Static
+                transformation.animated = false;
+                element->QueryFloatAttribute("x", &transformation.coords.x);
+                element->QueryFloatAttribute("y", &transformation.coords.y);
+                element->QueryFloatAttribute("z", &transformation.coords.z);
+            }
         } else if (strcmp(element->Name(), "rotate") == 0) {
             transformation.type = Transformation::Type::Rotate;
-            element->QueryFloatAttribute("angle", &transformation.angle);
-            element->QueryFloatAttribute("x", &transformation.coords.x);
-            element->QueryFloatAttribute("y", &transformation.coords.y);
-            element->QueryFloatAttribute("z", &transformation.coords.z);
+            if (element->QueryFloatAttribute("time", &transformation.animation.time) == XML_SUCCESS) {
+                // Time-based
+                transformation.animated = true;
+                element->QueryFloatAttribute("x", &transformation.coords.x);
+                element->QueryFloatAttribute("y", &transformation.coords.y);
+                element->QueryFloatAttribute("z", &transformation.coords.z);
+            } else {
+                // Static
+                transformation.animated = false;
+                element->QueryFloatAttribute("angle", &transformation.angle);
+                element->QueryFloatAttribute("x", &transformation.coords.x);
+                element->QueryFloatAttribute("y", &transformation.coords.y);
+                element->QueryFloatAttribute("z", &transformation.coords.z);
+            }
         } else if (strcmp(element->Name(), "scale") == 0) {
             transformation.type = Transformation::Type::Scale;
             element->QueryFloatAttribute("x", &transformation.coords.x);
@@ -66,13 +95,33 @@ void printGroup(const Group& group, int depth = 0) {
         cout << indent << "Transformation: ";
         switch (transformation.type) {
             case Transformation::Type::Translate:
-                cout << "Translate (" << transformation.coords.x << ", " << transformation.coords.y << ", " << transformation.coords.z << ")";
+                if (transformation.animated) {
+                    cout << "Animated Translate (time=" << transformation.animation.time
+                         << "s, align=" << (transformation.animation.align ? "true" : "false")
+                         << ", points=[";
+                    for (const auto& point : transformation.animation.points) {
+                        cout << "(" << point.x << "," << point.y << "," << point.z << ") ";
+                    }
+                    cout << "])";
+                } else {
+                    cout << "Translate (" << transformation.coords.x << ", "
+                         << transformation.coords.y << ", " << transformation.coords.z << ")";
+                }
                 break;
             case Transformation::Type::Rotate:
-                cout << "Rotate (angle=" << transformation.angle << ", axis=(" << transformation.coords.x << ", " << transformation.coords.y << ", " << transformation.coords.z << "))";
+                if (transformation.animated) {
+                    cout << "Animated Rotate (time=" << transformation.animation.time
+                         << "s, axis=(" << transformation.coords.x << ", "
+                         << transformation.coords.y << ", " << transformation.coords.z << "))";
+                } else {
+                    cout << "Rotate (angle=" << transformation.angle
+                         << ", axis=(" << transformation.coords.x << ", "
+                         << transformation.coords.y << ", " << transformation.coords.z << "))";
+                }
                 break;
             case Transformation::Type::Scale:
-                cout << "Scale (" << transformation.coords.x << ", " << transformation.coords.y << ", " << transformation.coords.z << ")";
+                cout << "Scale (" << transformation.coords.x << ", "
+                     << transformation.coords.y << ", " << transformation.coords.z << ")";
                 break;
         }
         cout << endl;
@@ -80,7 +129,7 @@ void printGroup(const Group& group, int depth = 0) {
 
     for (const auto& childGroup : group.childGroups) {
         cout << indent << "Child Group:" << endl;
-        printGroup(childGroup, depth + 1); // Increase depth for indentation
+        printGroup(childGroup, depth + 1);
     }
 }
 
