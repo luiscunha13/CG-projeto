@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #include <engine.h>
 #include <fstream>
 #include <iostream>
@@ -61,17 +62,11 @@ void multMatrixVector(float *m, float *v, float *res) {
 }
 
 void getCatmullRomPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, float *deriv) {
-    // catmull-rom matrix
-    float m[4][4] = {   {-0.5f,  1.5f, -1.5f,  0.5f},
-                        { 1.0f, -2.5f,  2.0f, -0.5f},
-                        {-0.5f,  0.0f,  0.5f,  0.0f},
-                        { 0.0f,  1.0f,  0.0f,  0.0f}};
-
     float a[4][3];
     for (int i = 0; i < 3; i++) {
         float p[4] = {p0[i], p1[i], p2[i], p3[i]};
         float res[4];
-        multMatrixVector((float *)m, p, res);
+        multMatrixVector((float *)catmull_matrix, p, res);
         a[0][i] = res[0];
         a[1][i] = res[1];
         a[2][i] = res[2];
@@ -146,6 +141,38 @@ void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
     glEnd();
 }
 
+void initModelVBOs(Model& model) {
+    if (model.vboInitialized) return;
+
+    // Generate and bind vertex buffer
+    glGenBuffers(1, &model.vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER,
+                 model.vertices.size() * sizeof(Vertex3f),
+                 model.vertices.data(),
+                 GL_STATIC_DRAW);
+
+    // Generate and bind index buffer
+    glGenBuffers(1, &model.indexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 model.indices.size() * sizeof(unsigned int),
+                 model.indices.data(),
+                 GL_STATIC_DRAW);
+
+    model.vboInitialized = true;
+}
+
+void cleanupVBOs() {
+    for (auto& model : models) {
+        if (model.vboInitialized) {
+            glDeleteBuffers(1, &model.vertexBuffer);
+            glDeleteBuffers(1, &model.indexBuffer);
+            model.vboInitialized = false;
+        }
+    }
+}
+
 void renderScene() {
 
     // clear buffers
@@ -187,10 +214,10 @@ void renderScene() {
 
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
 
-	for (const auto& model : models) {
+	for (auto& model : models) {
         glPushMatrix();
 
-        for (const auto& transformation : model.transformations) {
+        for (auto& transformation : model.transformations) {
             switch (transformation.type) {
                 case Transformation::Type::Translate:
                     if (transformation.animated) {
@@ -249,23 +276,20 @@ void renderScene() {
             }
         }
 
-		glBegin(GL_TRIANGLES);
+        if (!model.vboInitialized) {
+            initModelVBOs(model);
+        }
 
-		for (int i = 0; i < model.n_indices; i += 3) {
-			unsigned int idx1 = model.indices[i];
-			unsigned int idx2 = model.indices[i + 1];
-			unsigned int idx3 = model.indices[i + 2];
+        glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
+        glVertexPointer(3, GL_FLOAT, 0, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+        glEnableClientState(GL_VERTEX_ARRAY);
 
-			const Vertex3f& v1 = model.vertices[idx1];
-			const Vertex3f& v2 = model.vertices[idx2];
-			const Vertex3f& v3 = model.vertices[idx3];
+        glDrawElements(GL_TRIANGLES, model.n_indices, GL_UNSIGNED_INT, 0);
 
-			glVertex3f(v1.x, v1.y, v1.z);
-			glVertex3f(v2.x, v2.y, v2.z);
-			glVertex3f(v3.x, v3.y, v3.z);
-		}
-
-		glEnd();
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
         glPopMatrix();
 	}
@@ -471,6 +495,10 @@ bool readModelFromFile(const std::string& filename, Model& model) {
         }
     }
 
+    model.vboInitialized = false;
+    model.vertexBuffer = {};
+    model.indexBuffer = {};
+
     file.close();
     return true;
 }
@@ -515,6 +543,12 @@ void run_engine(World new_world, int argc, char **argv) {
     glutInitWindowSize(800,800);
     glutCreateWindow("CG@DI-UM");
 
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        std::cerr << "Error initializing GLEW: " << glewGetErrorString(err) << std::endl;
+        exit(1);
+    }
+
     // Required callback registry
     glutDisplayFunc(renderScene);
     glutReshapeFunc(changeSize);
@@ -530,6 +564,8 @@ void run_engine(World new_world, int argc, char **argv) {
 	glPolygonMode(GL_FRONT, GL_LINE);
 
     updateCamera();
+
+    atexit(cleanupVBOs);
 
     // enter GLUT's main cycle
     glutMainLoop();

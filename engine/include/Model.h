@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <vertex.h>
+#include <GL/gl.h>
 
 struct Model {
     int n_vertices;
@@ -10,6 +11,10 @@ struct Model {
     std::vector<Vertex3f> vertices;
     std::vector<unsigned int> indices;
     std::vector<Transformation> transformations;
+
+    GLuint vertexBuffer;
+    GLuint indexBuffer;
+    bool vboInitialized;
 };
 
 #endif
