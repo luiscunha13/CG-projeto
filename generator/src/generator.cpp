@@ -305,6 +305,7 @@ Generator generateTorus(float outerRadius, float innerRadius, unsigned int slice
 Generator generateBezier(const std::string& patchFile, int tessellation) {
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
+    vector<Vertex3f> controlPoints;
 
     ifstream file(patchFile);
     if (!file.is_open()) {
@@ -313,29 +314,34 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
     }
 
     int numPatches;
-    if (!(file >> numPatches)) {
-        cerr << "Error reading number of patches" << endl;
-        return {vertices, indexes};
+    file >> numPatches;
+
+    vector<vector<int>> patchIndices(numPatches, vector<int>(16));
+    for (int p = 0; p < numPatches; ++p) {
+        for (int i = 0; i < 16; ++i) {
+            file >> patchIndices[p][i];
+            file.ignore();
+        }
+    }
+
+    int numControlPoints;
+    file >> numControlPoints;
+
+    controlPoints.resize(numControlPoints);
+    for (int i = 0; i < numControlPoints; ++i) {
+        file >> controlPoints[i].x;
+        file.ignore();
+        file >> controlPoints[i].y;
+        file.ignore();
+        file >> controlPoints[i].z;
+        file.ignore();
+
     }
 
     const float binom[4] = {1.0f, 3.0f, 3.0f, 1.0f};
 
-    vector<vector<vector<Vertex3f>>> patches(numPatches);
-    for (int p = 0; p < numPatches; ++p) {
-        patches[p].resize(4);
-        for (int i = 0; i < 4; ++i) {
-            patches[p][i].resize(4);
-            for (int j = 0; j < 4; ++j) {
-                if (!(file >> patches[p][i][j].x >> patches[p][i][j].y >> patches[p][i][j].z)) {
-                    cerr << "Error reading control point data" << endl;
-                    return {vertices, indexes};
-                }
-            }
-        }
-    }
-
     cout << "Vertices" << endl;
-    for (const auto& patch : patches) {
+    for (const auto& indices : patchIndices) {
         const int baseIndex = vertices.size();
 
         // Generate vertices
@@ -364,13 +370,15 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
                 Vertex3f point = {0, 0, 0};
                 for (int k = 0; k < 4; ++k) {
                     for (int l = 0; l < 4; ++l) {
-                        point.x += patch[k][l].x * Bu[k] * Bv[l];
-                        point.y += patch[k][l].y * Bu[k] * Bv[l];
-                        point.z += patch[k][l].z * Bu[k] * Bv[l];
+                        // Get the control point using the indices from the patch
+                        const Vertex3f& cp = controlPoints[indices[k * 4 + l]];
+                        point.x += cp.x * Bu[k] * Bv[l];
+                        point.y += cp.y * Bu[k] * Bv[l];
+                        point.z += cp.z * Bu[k] * Bv[l];
                     }
                 }
 
-                cout << point.x << point.y << point.z << endl;
+                cout << point.x << " " << point.y << " " << point.z << endl;
                 vertices.push_back(point);
             }
         }

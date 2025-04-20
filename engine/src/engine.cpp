@@ -52,6 +52,31 @@ void changeSize(int w, int h) {
 	glMatrixMode(GL_MODELVIEW);
 }
 
+void buildRotMatrix(float *x, float *y, float *z, float *m) {
+
+    m[0] = x[0]; m[1] = x[1]; m[2] = x[2]; m[3] = 0;
+    m[4] = y[0]; m[5] = y[1]; m[6] = y[2]; m[7] = 0;
+    m[8] = z[0]; m[9] = z[1]; m[10] = z[2]; m[11] = 0;
+    m[12] = 0; m[13] = 0; m[14] = 0; m[15] = 1;
+}
+
+
+void cross(float *a, float *b, float *res) {
+
+    res[0] = a[1]*b[2] - a[2]*b[1];
+    res[1] = a[2]*b[0] - a[0]*b[2];
+    res[2] = a[0]*b[1] - a[1]*b[0];
+}
+
+
+void normalize(float *a) {
+
+    float l = sqrt(a[0]*a[0] + a[1] * a[1] + a[2] * a[2]);
+    a[0] = a[0]/l;
+    a[1] = a[1]/l;
+    a[2] = a[2]/l;
+}
+
 void multMatrixVector(float *m, float *v, float *res) {
     for (int j = 0; j < 4; ++j) {
         res[j] = 0;
@@ -92,16 +117,20 @@ void getCatmullRomPoint(float t, float *p0, float *p1, float *p2, float *p3, flo
     }
 }
 
-Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt, float* rotationY = nullptr) {
+Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt, float* derivOut = nullptr) {
     int pointCount = points.size();
     if (pointCount < 4) {
-        if (rotationY) *rotationY = 0.0f;
+        if (derivOut) {
+            derivOut[0] = 0.0f;
+            derivOut[1] = 0.0f;
+            derivOut[2] = 0.0f;
+        }
         return Vertex3f{0,0,0};
     }
 
-    float t = gt * pointCount; // this is the real global t
-    int index = floor(t);  // which segment
-    t = t - index; // where within the segment
+    float t = gt * pointCount;
+    int index = floor(t);
+    t = t - index;
 
     // indices store the points
     int indices[4];
@@ -118,8 +147,10 @@ Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt,
     float pos[3], deriv[3];
     getCatmullRomPoint(t, p0, p1, p2, p3, pos, deriv);
 
-    if (rotationY) {
-        *rotationY = atan2(deriv[2], deriv[0]);
+    if (derivOut) {
+        derivOut[0] = deriv[0];
+        derivOut[1] = deriv[1];
+        derivOut[2] = deriv[2];
     }
 
     return Vertex3f{pos[0], pos[1], pos[2]};
@@ -221,7 +252,7 @@ void renderScene() {
             switch (transformation.type) {
                 case Transformation::Type::Translate:
                     if (transformation.animated) {
-                        // Time-based animation using elapsed time
+                        // Time-based
                         float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f; // convert to seconds
                         float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
 
@@ -233,15 +264,27 @@ void renderScene() {
                             normalizedTime = adjustedTime;
                         }
 
-                        float rotationY = 0.0f;
+                        float deriv[3];
                         Vertex3f point = getGlobalCatmullRomPoint(
                                 transformation.animation.points, normalizedTime,
-                                transformation.animation.align ? &rotationY : nullptr);
+                                transformation.animation.align ? deriv : nullptr);
+
 
                         glTranslatef(point.x, point.y, point.z);
 
                         if (transformation.animation.align) {
-                            glRotatef(rotationY * 180.0f / M_PI, 0.0f, 1.0f, 0.0f);
+                            normalize(deriv);
+
+                            float up[3] = {0, 1, 0};
+                            float right[3];
+                            cross(deriv, up, right);
+                            normalize(right);
+                            cross(right, deriv, up);
+                            normalize(up);
+
+                            float m[16];
+                            buildRotMatrix(deriv, up, right, m);
+                            glMultMatrixf(m);
                         }
                     } else {
                         glTranslatef(transformation.coords.x,
