@@ -41,3 +41,9 @@
 cmake_install.cmake
 CMakeCache.txt
 CMakeFiles/
+
+engine
+!engine/
+
+generator
+!generator/
