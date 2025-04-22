@@ -19,28 +19,17 @@
         </models>
     </group>
 
-    <!-- Group with time-based rotation (10 seconds per full rotation) -->
-    <group>
-        <transform>
-            <translate x="-4" y="0" z="0" />
-            <rotate time="10" x="0" y="1" z="0" />
-            <scale x="1" y="1" z="1" />
-        </transform>
-        <models>
-            <model file="../models/torus.3d" />
-        </models>
-    </group>
+
 
     <!-- Group with Catmull-Rom curve animation (8 seconds, aligned with curve) -->
     <group>
         <transform>
             <translate time="8" align="true">
                 <point x="-4" y="0" z="4" />
-                <point x="-2" y="2" z="2" />
+                <point x="-5" y="2" z="2" />
                 <point x="0" y="0" z="0" />
-                <point x="2" y="-2" z="-2" />
-                <point x="4" y="0" z="-4" />
-                <point x="-4" y="0" z="4" /> <!-- Extra point for smooth looping -->
+                <point x="3" y="-2" z="-3" />
+                <point x="4" y="0" z="-4" /><!-- Extra point for smooth looping -->
             </translate>
             <scale x="0.5" y="0.5" z="0.5" />
         </transform>

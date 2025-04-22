@@ -17,26 +17,6 @@
         </models>
 
         <!-- Comet with Catmull-Rom trajectory -->
-        <group>
-            <transform>
-                <translate time="10" align="true">
-                    <point x="-50" y="30" z="0" />
-                    <point x="-30" y="20" z="20" />
-                    <point x="0" y="10" z="0" />
-                    <point x="30" y="20" z="-20" />
-                    <point x="50" y="30" z="0" />
-                    <point x="30" y="40" z="20" />
-                    <point x="0" y="50" z="0" />
-                    <point x="-30" y="40" z="-20" />
-                    <point x="-50" y="30" z="0" /> <!-- Closing the loop -->
-                </translate>
-                <rotate x="0" y="1" z="0" time="5" />
-                <scale x="0.1" y="0.1" z="0.1" />
-            </transform>
-            <models>
-                <model file="comet.3d" />
-            </models>
-        </group>
 
         <!-- Mercury -->
         <group>
@@ -212,5 +192,24 @@
                 </models>
             </group>
         </group>
+    </group>
+    <group>
+        <transform>
+            <translate time="10" align="true">
+                <point x="-50" y="30" z="0" />
+                <point x="-30" y="20" z="20" />
+                <point x="0" y="10" z="0" />
+                <point x="30" y="20" z="-20" />
+                <point x="50" y="30" z="0" />
+                <point x="30" y="40" z="20" />
+                <point x="0" y="50" z="0" />
+                <point x="-30" y="40" z="-20" />
+            </translate>
+            <rotate x="0" y="1" z="0" time="5" />
+            <scale x="0.5" y="0.5" z="0.5" />
+        </transform>
+        <models>
+            <model file="comet.3d" />
+        </models>
     </group>
 </world>
