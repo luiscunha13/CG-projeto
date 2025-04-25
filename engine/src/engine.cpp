@@ -232,16 +232,7 @@ void renderScene() {
     glColor3f(1.0f, 1.0f, 1.0f);
     glEnd();
 
-    for (const auto& model : models) {
-        for (const auto& transformation : model.transformations) {
-            if (transformation.type == Transformation::Type::Translate &&
-                transformation.animated &&
-                transformation.animation.points.size() >= 4) {
 
-                renderCatmullRomCurve(transformation.animation.points);
-            }
-        }
-    }
 
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
 
