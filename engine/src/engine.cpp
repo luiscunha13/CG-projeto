@@ -256,14 +256,6 @@ void renderScene() {
                         float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f; // convert to seconds
                         float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
 
-                        // closed loops
-                        if (transformation.animation.points.size() > 1 &&
-                            transformation.animation.points.front() == transformation.animation.points.back()) {
-                            float adjustedTime = normalizedTime * (transformation.animation.points.size() - 1) /
-                                                 transformation.animation.points.size();
-                            normalizedTime = adjustedTime;
-                        }
-
                         float deriv[3];
                         Vertex3f point = getGlobalCatmullRomPoint(
                                 transformation.animation.points, normalizedTime,
