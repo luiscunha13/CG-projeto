@@ -195,15 +195,54 @@
     </group>
     <group>
         <transform>
-            <translate time="10" align="true" algorithm="catmull-rom">
+            <translate time="10" align="true" algorithm="bezier">
+                <!-- First segment -->
                 <point x="-50" y="30" z="0" />
+                <point x="-40" y="20" z="15" />
+                <point x="-35" y="15" z="20" />
                 <point x="-30" y="20" z="20" />
+                
+                <!-- Second segment -->
+                <point x="-30" y="20" z="20" />
+                <point x="-20" y="15" z="15" />
+                <point x="-10" y="10" z="5" />
                 <point x="0" y="10" z="0" />
+                
+                <!-- Third segment -->
+                <point x="0" y="10" z="0" />
+                <point x="10" y="10" z="-5" />
+                <point x="20" y="15" z="-15" />
                 <point x="30" y="20" z="-20" />
+                
+                <!-- Fourth segment -->
+                <point x="30" y="20" z="-20" />
+                <point x="35" y="25" z="-15" />
+                <point x="45" y="28" z="-5" />
                 <point x="50" y="30" z="0" />
+                
+                <!-- Fifth segment -->
+                <point x="50" y="30" z="0" />
+                <point x="45" y="35" z="10" />
+                <point x="35" y="38" z="18" />
                 <point x="30" y="40" z="20" />
+                
+                <!-- Sixth segment -->
+                <point x="30" y="40" z="20" />
+                <point x="20" y="45" z="15" />
+                <point x="10" y="48" z="5" />
                 <point x="0" y="50" z="0" />
+                
+                <!-- Seventh segment (closing the loop) -->
+                <point x="0" y="50" z="0" />
+                <point x="-10" y="48" z="-5" />
+                <point x="-20" y="45" z="-15" />
                 <point x="-30" y="40" z="-20" />
+                
+                <!-- Eighth segment (back to start) -->
+                <point x="-30" y="40" z="-20" />
+                <point x="-40" y="38" z="-10" />
+                <point x="-45" y="35" z="-5" />
+                <point x="-50" y="30" z="0" />
             </translate>
             <rotate x="0" y="1" z="0" time="5" />
             <scale x="0.5" y="0.5" z="0.5" />

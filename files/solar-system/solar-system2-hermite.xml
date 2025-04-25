@@ -195,7 +195,7 @@
     </group>
     <group>
         <transform>
-            <translate time="10" align="true" algorithm="catmull-rom">
+            <translate time="10" align="true" algorithm="hermite">
                 <point x="-50" y="30" z="0" />
                 <point x="-30" y="20" z="20" />
                 <point x="0" y="10" z="0" />

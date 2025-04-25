@@ -17,6 +17,8 @@ void parseTransformation(XMLElement* transformElement, Group& group) {
                 // Time-based
                 transformation.animated = true;
                 transformation.animation.align = element->BoolAttribute("align", false);
+                const char* algorithmAttr = element->Attribute("algorithm");
+                transformation.animation.algorithm = algorithmAttr ? std::string(algorithmAttr) : "catmull-rom";
 
                 for (XMLElement* pointElement = element->FirstChildElement("point");
                      pointElement;
