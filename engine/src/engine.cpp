@@ -24,10 +24,21 @@ float fov = 45.0f;
 bool mouseLeftDown = false;
 int lastMouseX = -1, lastMouseY = -1;
 
+float bezier_matrix[4][4] = {{-1.0f,  3.0f, -3.0f,  1.0f},
+                            { 3.0f, -6.0f,  3.0f,  0.0f},
+                            {-3.0f,  3.0f,  0.0f,  0.0f},
+                            { 1.0f,  0.0f,  0.0f,  0.0f}};
+
 float catmull_matrix[4][4] = {{-0.5f,  1.5f, -1.5f,  0.5f},
                               { 1.0f, -2.5f,  2.0f, -0.5f},
                               {-0.5f,  0.0f,  0.5f,  0.0f},
                               { 0.0f,  1.0f,  0.0f,  0.0f}};
+
+float hermite_matrix[4][4] = {{2.0f, -2.0f, 1.0f, 1.0f},
+                            {-3.0f, 3.0f, -2.0f, -1.0f},
+                            {0.0f, 0.0f, 1.0f, 0.0f},
+                            {1.0f, 0.0f, 0.0f, 0.0f}};
+
 
 void changeSize(int w, int h) {
 
@@ -86,35 +97,117 @@ void multMatrixVector(float *m, float *v, float *res) {
     }
 }
 
-void getCatmullRomPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, float *deriv) {
+std::vector<Vertex3f> calculateTangents(const std::vector<Vertex3f>& points, bool closed = false) {
+    int n = points.size();
+    std::vector<Vertex3f> tangents(n);
+    
+    for (int i = 0; i < n; i++) {
+        if (i > 0 && i < n - 1) {
+            tangents[i].x = (points[i+1].x - points[i-1].x) * 0.5f;
+            tangents[i].y = (points[i+1].y - points[i-1].y) * 0.5f;
+            tangents[i].z = (points[i+1].z - points[i-1].z) * 0.5f;
+        }
+        else if (!closed) {
+            if (i == 0) {
+                // start point
+                tangents[i].x = (points[i+1].x - points[i].x);
+                tangents[i].y = (points[i+1].y - points[i].y);
+                tangents[i].z = (points[i+1].z - points[i].z);
+            } else {
+                // end point
+                tangents[i].x = (points[i].x - points[i-1].x);
+                tangents[i].y = (points[i].y - points[i-1].y);
+                tangents[i].z = (points[i].z - points[i-1].z);
+            }
+        }
+        else {
+            if (i == 0) {
+                // start point
+                tangents[i].x = (points[1].x - points[n-1].x) * 0.5f;
+                tangents[i].y = (points[1].y - points[n-1].y) * 0.5f;
+                tangents[i].z = (points[1].z - points[n-1].z) * 0.5f;
+            } else if (i == n-1) {
+                // start/end point
+                tangents[i] = tangents[0];
+            }
+        }
+    }
+    
+    return tangents;
+}
+
+void getPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, float *deriv, char algorithm) {
     float a[4][3];
     for (int i = 0; i < 3; i++) {
+        //hermite -> p2/p3 = m0/m1
         float p[4] = {p0[i], p1[i], p2[i], p3[i]};
         float res[4];
-        multMatrixVector((float *)catmull_matrix, p, res);
+        float *matrix;
+        if(algorithm == 'H'){
+            matrix = (float *)hermite_matrix;
+        }
+        else if(algorithm == 'B'){
+            matrix = (float *)bezier_matrix;
+        }
+        else{
+            matrix = (float *)catmull_matrix;
+        }
+        
+        multMatrixVector(matrix, p, res);
         a[0][i] = res[0];
         a[1][i] = res[1];
         a[2][i] = res[2];
         a[3][i] = res[3];
     }
 
-    // Compute pos = T * A
+    // Compute pos = T * A and deriv = T' * A
     float t_vec[4] = {t*t*t, t*t, t, 1};
-    for (int i = 0; i < 3; i++) {
-        pos[i] = 0;
-        for (int j = 0; j < 4; j++) {
-            pos[i] += t_vec[j] * a[j][i];
-        }
-    }
-
-    // Compute deriv = T' * A
     float t_deriv[4] = {3*t*t, 2*t, 1, 0};
     for (int i = 0; i < 3; i++) {
+        pos[i] = 0;
         deriv[i] = 0;
+        
         for (int j = 0; j < 4; j++) {
+            pos[i] += t_vec[j] * a[j][i];
             deriv[i] += t_deriv[j] * a[j][i];
         }
     }
+}
+
+Vertex3f getGlobalBezierPoint(const std::vector<Vertex3f>& points, float gt, float* derivOut = nullptr) {
+    int pointCount = points.size();
+    if (pointCount < 4) {
+        if (derivOut) {
+            derivOut[0] = 0.0f;
+            derivOut[1] = 0.0f;
+            derivOut[2] = 0.0f;
+        }
+        return Vertex3f{0,0,0};
+    }
+
+    // For Bézier curves, we need a multiple of 3 control points + 1 starting point
+    int numCurves = (pointCount - 1) / 3;
+    int curveIndex = std::min(static_cast<int>(gt * numCurves), numCurves - 1);
+    float localT = fmod(gt * numCurves, 1.0f);
+    
+    // Calculate curve segment (each segment uses 4 control points)
+    int baseIndex = curveIndex * 3;
+    
+    float p0[3] = {points[baseIndex].x, points[baseIndex].y, points[baseIndex].z};
+    float p1[3] = {points[baseIndex+1].x, points[baseIndex+1].y, points[baseIndex+1].z};
+    float p2[3] = {points[baseIndex+2].x, points[baseIndex+2].y, points[baseIndex+2].z};
+    float p3[3] = {points[baseIndex+3].x, points[baseIndex+3].y, points[baseIndex+3].z};
+
+    float pos[3], deriv[3];
+    getPoint(localT, p0, p1, p2, p3, pos, deriv, 'B');
+
+    if (derivOut) {
+        derivOut[0] = deriv[0];
+        derivOut[1] = deriv[1];
+        derivOut[2] = deriv[2];
+    }
+
+    return Vertex3f{pos[0], pos[1], pos[2]};
 }
 
 Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt, float* derivOut = nullptr) {
@@ -145,7 +238,7 @@ Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt,
     float p3[3] = {points[indices[3]].x, points[indices[3]].y, points[indices[3]].z};
 
     float pos[3], deriv[3];
-    getCatmullRomPoint(t, p0, p1, p2, p3, pos, deriv);
+    getPoint(t, p0, p1, p2, p3, pos, deriv, 'C');
 
     if (derivOut) {
         derivOut[0] = deriv[0];
@@ -154,6 +247,73 @@ Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt,
     }
 
     return Vertex3f{pos[0], pos[1], pos[2]};
+}
+
+Vertex3f getGlobalHermitePoint(const std::vector<Vertex3f>& points, const std::vector<Vertex3f>& tangents, float gt, float* derivOut = nullptr) {
+    int pointCount = points.size();
+    if (pointCount < 2 || tangents.size() < pointCount) {
+        if (derivOut) {
+            derivOut[0] = 0.0f;
+            derivOut[1] = 0.0f;
+            derivOut[2] = 0.0f;
+        }
+        return Vertex3f{0,0,0};
+    }
+
+    float t = gt * (pointCount - 1);
+    int index = floor(t);
+    t = t - index;
+
+    // Ensure index is within bounds
+    if (index >= pointCount - 1) {
+        index = pointCount - 2;
+        t = 1.0f;
+    }
+
+    float p0[3] = {points[index].x, points[index].y, points[index].z};
+    float p1[3] = {points[index+1].x, points[index+1].y, points[index+1].z};
+    float m0[3] = {tangents[index].x, tangents[index].y, tangents[index].z};
+    float m1[3] = {tangents[index+1].x, tangents[index+1].y, tangents[index+1].z};
+
+    float pos[3], deriv[3];
+    getPoint(t, p0, p1, m0, m1, pos, deriv, 'H');
+
+    if (derivOut) {
+        derivOut[0] = deriv[0];
+        derivOut[1] = deriv[1];
+        derivOut[2] = deriv[2];
+    }
+
+    return Vertex3f{pos[0], pos[1], pos[2]};
+}
+
+Vertex3f getPointOnCurve(const std::vector<Vertex3f>& points, float normalizedTime, float* derivOut, const std::string& algorithm) {
+    if (algorithm == "hermite") {
+        // Calculate tangents
+        std::vector<Vertex3f> tangents = calculateTangents(points, true);
+        return getGlobalHermitePoint(points, tangents, normalizedTime, derivOut);
+    } else if (algorithm == "bezier") {
+        return getGlobalBezierPoint(points, normalizedTime, derivOut);
+    } else {
+        return getGlobalCatmullRomPoint(points, normalizedTime, derivOut);
+    }
+}
+
+/*
+void renderBezierCurve(const std::vector<Vertex3f>& points) {
+    if (points.size() < 4) return;  // Need at least 4 points for a Bézier curve
+    
+    glColor3f(1.0f, 1.0f, 1.0f);  // White color for the curve
+    glBegin(GL_LINE_STRIP);
+
+    // Draw 100 segments for smooth curve
+    for (int i = 0; i <= 100; ++i) {
+        float gt = (float)i / 100.0f;
+        Vertex3f point = getGlobalBezierPoint(points, gt);
+        glVertex3f(point.x, point.y, point.z);
+    }
+
+    glEnd();
 }
 
 void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
@@ -171,6 +331,35 @@ void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
 
     glEnd();
 }
+
+void renderHermiteCurve(const std::vector<Vertex3f>& points, const std::vector<Vertex3f>& tangents) {
+    if (points.size() < 2 || tangents.size() < points.size()) return;  // Need at least 2 points and their tangents
+
+    glColor3f(1.0f, 1.0f, 1.0f);  // White color for the curve
+    glBegin(GL_LINE_STRIP);  // Changed from GL_LINE_LOOP to GL_LINE_STRIP for open curves
+
+    // Draw 100 segments for smooth curve
+    for (int i = 0; i <= 100; ++i) {
+        float gt = (float)i / 100.0f;
+        Vertex3f point = getGlobalHermitePoint(points, tangents, gt);
+        glVertex3f(point.x, point.y, point.z);
+    }
+
+    glEnd();
+}
+
+void renderCurve(const std::vector<Vertex3f>& points, const std::string& algorithm) {
+    if (algorithm == "hermite") {
+        std::vector<Vertex3f> tangents = calculateTangents(points, true);
+        renderHermiteCurve(points, tangents);
+    } else if (algorithm == "bezier") {
+        renderBezierCurve(points);
+    } else {
+        // Default to Catmull-Rom
+        renderCatmullRomCurve(points);
+    }
+}
+*/
 
 void initModelVBOs(Model& model) {
     if (model.vboInitialized) return;
@@ -231,9 +420,17 @@ void renderScene() {
     glVertex3f(0.0f, 0.0f, 100.0f);
     glColor3f(1.0f, 1.0f, 1.0f);
     glEnd();
-
-
-
+    /*
+    for (const auto& model : models) {
+        for (const auto& transformation : model.transformations) {
+            if (transformation.type == Transformation::Type::Translate &&
+                transformation.animated &&
+                transformation.animation.points.size() >= 4) {
+                renderCurve(transformation.animation.points, transformation.animation.algorithm);
+            }
+        }
+    }
+    */
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
 
 	for (auto& model : models) {
@@ -246,12 +443,13 @@ void renderScene() {
                         // Time-based
                         float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f; // convert to seconds
                         float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
-
+                        
                         float deriv[3];
-                        Vertex3f point = getGlobalCatmullRomPoint(
-                                transformation.animation.points, normalizedTime,
-                                transformation.animation.align ? deriv : nullptr);
-
+                        Vertex3f point = getPointOnCurve(
+                                transformation.animation.points, 
+                                normalizedTime,
+                                transformation.animation.align ? deriv : nullptr,
+                                transformation.animation.algorithm);
 
                         glTranslatef(point.x, point.y, point.z);
 

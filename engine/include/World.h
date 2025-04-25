@@ -41,6 +41,7 @@ struct Transformation{
         float time;
         bool align;
         std::vector<Vertex3f> points;
+        std::string algorithm;
     } animation;
 
 };
