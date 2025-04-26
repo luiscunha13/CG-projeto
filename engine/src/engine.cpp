@@ -97,42 +97,18 @@ void multMatrixVector(float *m, float *v, float *res) {
     }
 }
 
-std::vector<Vertex3f> calculateTangents(const std::vector<Vertex3f>& points, bool closed = false) {
+std::vector<Vertex3f> calculateTangents(const std::vector<Vertex3f>& points) {
     int n = points.size();
     std::vector<Vertex3f> tangents(n);
     
     for (int i = 0; i < n; i++) {
-        if (i > 0 && i < n - 1) {
-            tangents[i].x = (points[i+1].x - points[i-1].x) * 0.5f;
-            tangents[i].y = (points[i+1].y - points[i-1].y) * 0.5f;
-            tangents[i].z = (points[i+1].z - points[i-1].z) * 0.5f;
-        }
-        else if (!closed) {
-            if (i == 0) {
-                // start point
-                tangents[i].x = (points[i+1].x - points[i].x);
-                tangents[i].y = (points[i+1].y - points[i].y);
-                tangents[i].z = (points[i+1].z - points[i].z);
-            } else {
-                // end point
-                tangents[i].x = (points[i].x - points[i-1].x);
-                tangents[i].y = (points[i].y - points[i-1].y);
-                tangents[i].z = (points[i].z - points[i-1].z);
-            }
-        }
-        else {
-            if (i == 0) {
-                // start point
-                tangents[i].x = (points[1].x - points[n-1].x) * 0.5f;
-                tangents[i].y = (points[1].y - points[n-1].y) * 0.5f;
-                tangents[i].z = (points[1].z - points[n-1].z) * 0.5f;
-            } else if (i == n-1) {
-                // start/end point
-                tangents[i] = tangents[0];
-            }
-        }
+        int prev = (i - 1 + n) % n;
+        int next = (i + 1) % n;
+        
+        tangents[i].x = (points[next].x - points[prev].x) * 0.5f;
+        tangents[i].y = (points[next].y - points[prev].y) * 0.5f;
+        tangents[i].z = (points[next].z - points[prev].z) * 0.5f;
     }
-    
     return tangents;
 }
 
@@ -260,20 +236,18 @@ Vertex3f getGlobalHermitePoint(const std::vector<Vertex3f>& points, const std::v
         return Vertex3f{0,0,0};
     }
 
-    float t = gt * (pointCount - 1);
+    float t = gt * pointCount;
     int index = floor(t);
     t = t - index;
 
-    // Ensure index is within bounds
-    if (index >= pointCount - 1) {
-        index = pointCount - 2;
-        t = 1.0f;
-    }
+    int indices[2];
+    indices[0] = (index + pointCount-1)%pointCount;
+    indices[1] = (indices[0]+1)%pointCount;
 
-    float p0[3] = {points[index].x, points[index].y, points[index].z};
-    float p1[3] = {points[index+1].x, points[index+1].y, points[index+1].z};
-    float m0[3] = {tangents[index].x, tangents[index].y, tangents[index].z};
-    float m1[3] = {tangents[index+1].x, tangents[index+1].y, tangents[index+1].z};
+    float p0[3] = {points[indices[0]].x, points[indices[0]].y, points[indices[0]].z};
+    float p1[3] = {points[indices[1]].x, points[indices[1]].y, points[indices[1]].z};
+    float m0[3] = {tangents[indices[0]].x, tangents[indices[0]].y, tangents[indices[0]].z};
+    float m1[3] = {tangents[indices[1]].x, tangents[indices[1]].y, tangents[indices[1]].z};
 
     float pos[3], deriv[3];
     getPoint(t, p0, p1, m0, m1, pos, deriv, 'H');
@@ -290,7 +264,7 @@ Vertex3f getGlobalHermitePoint(const std::vector<Vertex3f>& points, const std::v
 Vertex3f getPointOnCurve(const std::vector<Vertex3f>& points, float normalizedTime, float* derivOut, const std::string& algorithm) {
     if (algorithm == "hermite") {
         // Calculate tangents
-        std::vector<Vertex3f> tangents = calculateTangents(points, true);
+        std::vector<Vertex3f> tangents = calculateTangents(points);
         return getGlobalHermitePoint(points, tangents, normalizedTime, derivOut);
     } else if (algorithm == "bezier") {
         return getGlobalBezierPoint(points, normalizedTime, derivOut);
@@ -299,7 +273,7 @@ Vertex3f getPointOnCurve(const std::vector<Vertex3f>& points, float normalizedTi
     }
 }
 
-/*
+
 void renderBezierCurve(const std::vector<Vertex3f>& points) {
     if (points.size() < 4) return;  // Need at least 4 points for a Bézier curve
     
@@ -336,7 +310,7 @@ void renderHermiteCurve(const std::vector<Vertex3f>& points, const std::vector<V
     if (points.size() < 2 || tangents.size() < points.size()) return;  // Need at least 2 points and their tangents
 
     glColor3f(1.0f, 1.0f, 1.0f);  // White color for the curve
-    glBegin(GL_LINE_STRIP);  // Changed from GL_LINE_LOOP to GL_LINE_STRIP for open curves
+    glBegin(GL_LINE_LOOP);  // Changed from GL_LINE_LOOP to GL_LINE_STRIP for open curves
 
     // Draw 100 segments for smooth curve
     for (int i = 0; i <= 100; ++i) {
@@ -350,7 +324,7 @@ void renderHermiteCurve(const std::vector<Vertex3f>& points, const std::vector<V
 
 void renderCurve(const std::vector<Vertex3f>& points, const std::string& algorithm) {
     if (algorithm == "hermite") {
-        std::vector<Vertex3f> tangents = calculateTangents(points, true);
+        std::vector<Vertex3f> tangents = calculateTangents(points);
         renderHermiteCurve(points, tangents);
     } else if (algorithm == "bezier") {
         renderBezierCurve(points);
@@ -359,7 +333,6 @@ void renderCurve(const std::vector<Vertex3f>& points, const std::string& algorit
         renderCatmullRomCurve(points);
     }
 }
-*/
 
 void initModelVBOs(Model& model) {
     if (model.vboInitialized) return;
@@ -425,12 +398,13 @@ void renderScene() {
         for (const auto& transformation : model.transformations) {
             if (transformation.type == Transformation::Type::Translate &&
                 transformation.animated &&
-                transformation.animation.points.size() >= 4) {
+                transformation.animation.points.size() >= 4 &&
+                transformation.animation.algorithm == "hermite") {
                 renderCurve(transformation.animation.points, transformation.animation.algorithm);
             }
         }
     }
-    */
+    */  
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
 
 	for (auto& model : models) {
