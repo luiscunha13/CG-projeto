@@ -24,11 +24,6 @@ float fov = 45.0f;
 bool mouseLeftDown = false;
 int lastMouseX = -1, lastMouseY = -1;
 
-float bezier_matrix[4][4] = {{-1.0f,  3.0f, -3.0f,  1.0f},
-                            { 3.0f, -6.0f,  3.0f,  0.0f},
-                            {-3.0f,  3.0f,  0.0f,  0.0f},
-                            { 1.0f,  0.0f,  0.0f,  0.0f}};
-
 float catmull_matrix[4][4] = {{-0.5f,  1.5f, -1.5f,  0.5f},
                               { 1.0f, -2.5f,  2.0f, -0.5f},
                               {-0.5f,  0.0f,  0.5f,  0.0f},
@@ -122,9 +117,6 @@ void getPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, f
         if(algorithm == 'H'){
             matrix = (float *)hermite_matrix;
         }
-        else if(algorithm == 'B'){
-            matrix = (float *)bezier_matrix;
-        }
         else{
             matrix = (float *)catmull_matrix;
         }
@@ -148,42 +140,6 @@ void getPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, f
             deriv[i] += t_deriv[j] * a[j][i];
         }
     }
-}
-
-Vertex3f getGlobalBezierPoint(const std::vector<Vertex3f>& points, float gt, float* derivOut = nullptr) {
-    int pointCount = points.size();
-    if (pointCount < 4) {
-        if (derivOut) {
-            derivOut[0] = 0.0f;
-            derivOut[1] = 0.0f;
-            derivOut[2] = 0.0f;
-        }
-        return Vertex3f{0,0,0};
-    }
-
-    // For Bézier curves, we need a multiple of 3 control points + 1 starting point
-    int numCurves = (pointCount - 1) / 3;
-    int curveIndex = std::min(static_cast<int>(gt * numCurves), numCurves - 1);
-    float localT = fmod(gt * numCurves, 1.0f);
-    
-    // Calculate curve segment (each segment uses 4 control points)
-    int baseIndex = curveIndex * 3;
-    
-    float p0[3] = {points[baseIndex].x, points[baseIndex].y, points[baseIndex].z};
-    float p1[3] = {points[baseIndex+1].x, points[baseIndex+1].y, points[baseIndex+1].z};
-    float p2[3] = {points[baseIndex+2].x, points[baseIndex+2].y, points[baseIndex+2].z};
-    float p3[3] = {points[baseIndex+3].x, points[baseIndex+3].y, points[baseIndex+3].z};
-
-    float pos[3], deriv[3];
-    getPoint(localT, p0, p1, p2, p3, pos, deriv, 'B');
-
-    if (derivOut) {
-        derivOut[0] = deriv[0];
-        derivOut[1] = deriv[1];
-        derivOut[2] = deriv[2];
-    }
-
-    return Vertex3f{pos[0], pos[1], pos[2]};
 }
 
 Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt, float* derivOut = nullptr) {
@@ -266,29 +222,11 @@ Vertex3f getPointOnCurve(const std::vector<Vertex3f>& points, float normalizedTi
         // Calculate tangents
         std::vector<Vertex3f> tangents = calculateTangents(points);
         return getGlobalHermitePoint(points, tangents, normalizedTime, derivOut);
-    } else if (algorithm == "bezier") {
-        return getGlobalBezierPoint(points, normalizedTime, derivOut);
     } else {
         return getGlobalCatmullRomPoint(points, normalizedTime, derivOut);
     }
 }
 
-
-void renderBezierCurve(const std::vector<Vertex3f>& points) {
-    if (points.size() < 4) return;  // Need at least 4 points for a Bézier curve
-    
-    glColor3f(1.0f, 1.0f, 1.0f);  // White color for the curve
-    glBegin(GL_LINE_STRIP);
-
-    // Draw 100 segments for smooth curve
-    for (int i = 0; i <= 100; ++i) {
-        float gt = (float)i / 100.0f;
-        Vertex3f point = getGlobalBezierPoint(points, gt);
-        glVertex3f(point.x, point.y, point.z);
-    }
-
-    glEnd();
-}
 
 void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
     if (points.size() < 4) return;  // Need at least 4 points for Catmull-Rom
@@ -307,12 +245,11 @@ void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
 }
 
 void renderHermiteCurve(const std::vector<Vertex3f>& points, const std::vector<Vertex3f>& tangents) {
-    if (points.size() < 2 || tangents.size() < points.size()) return;  // Need at least 2 points and their tangents
+    if (points.size() < 2 || tangents.size() < points.size()) return; 
 
-    glColor3f(1.0f, 1.0f, 1.0f);  // White color for the curve
-    glBegin(GL_LINE_LOOP);  // Changed from GL_LINE_LOOP to GL_LINE_STRIP for open curves
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_LINE_LOOP);
 
-    // Draw 100 segments for smooth curve
     for (int i = 0; i <= 100; ++i) {
         float gt = (float)i / 100.0f;
         Vertex3f point = getGlobalHermitePoint(points, tangents, gt);
@@ -326,8 +263,6 @@ void renderCurve(const std::vector<Vertex3f>& points, const std::string& algorit
     if (algorithm == "hermite") {
         std::vector<Vertex3f> tangents = calculateTangents(points);
         renderHermiteCurve(points, tangents);
-    } else if (algorithm == "bezier") {
-        renderBezierCurve(points);
     } else {
         // Default to Catmull-Rom
         renderCatmullRomCurve(points);

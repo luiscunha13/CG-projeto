@@ -50,7 +50,7 @@
         <!-- Venus -->
         <group>
             <transform>
-                <translate time="15" align="true">
+                <translate time="15" align="true" algorithm="catmull-rom">
                     <point x="3" y="-0.2" z="3" />
                     <point x="-3" y="-0.1" z="3" />
                     <point x="-3" y="0" z="-3" />
@@ -67,7 +67,7 @@
         <!-- Earth with Moon -->
         <group>
             <transform>
-                <translate time="20" align="true">
+                <translate time="20" align="true" algorithm="hermite">
                     <point x="4" y="0.5" z="4" />
                     <point x="-4" y="0.4" z="4" />
                     <point x="-4" y="0.3" z="-4" />
