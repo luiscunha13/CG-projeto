@@ -3,40 +3,30 @@ import math
 
 def generate_asteroid_belt(num_asteroids=200):
     xml_parts = []
-    
-    min_radius = 5.5
-    max_radius = 7.5
-    thickness = 1.0  
-    
+
+    min_radius = 7.5
+    max_radius = 9.5
+    thickness = 1.0
+
     for i in range(num_asteroids):
         angle = random.uniform(0, 2 * math.pi)
         radius = random.uniform(min_radius, max_radius)
         vertical_offset = random.uniform(-thickness/2, thickness/2)
-        
+
         orbit_speed = random.uniform(25, 35)
-        
+
         size = min(0.005 + random.expovariate(5.0), 0.01)
-        
+
         points = []
         for j in range(4):
-            x=0
-            z=0
-            if j==0:
-            	x=radius
-            	z=radius
-            elif j==1:
-            	x=-radius
-            	z=radius
-            elif j==2:
-            	x=-radius
-            	z=-radius
-            elif j==3:
-            	x=radius
-            	z=-radius
-           
-            y = vertical_offset 
+            angle_offset = j * (math.pi / 2)
+            final_angle = angle + angle_offset
+            x = radius * math.cos(final_angle)
+            z = radius * math.sin(final_angle)
+            y = vertical_offset
+
             points.append((x, y, z))
-        
+
         asteroid_xml = f"""
 <group>
     <transform>
@@ -57,10 +47,10 @@ def generate_asteroid_belt(num_asteroids=200):
     </models>
 </group>"""
         xml_parts.append(asteroid_xml)
-    
+
     return '\n'.join(xml_parts)
 
-asteroids_xml = generate_asteroid_belt(200)
+asteroids_xml = generate_asteroid_belt(500)
 
 with open('asteroid_belt_circular.xml', 'w') as f:
     f.write(f"""<!-- Asteroid Belt (200 objects with circular orbits) -->
