@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <vertex.h>
+#include <Light.h>
 
 
 struct Window {
@@ -52,10 +53,13 @@ struct Group {
     std::vector<Group> childGroups;
 };
 
+
 struct World {
     Window window;
     Camera camera;
     std::vector<Group> groups;
+    //adicionado
+    std::vector<Light> lights;
 };
 
 #endif

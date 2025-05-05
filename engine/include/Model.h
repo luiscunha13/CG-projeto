@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <vertex.h>
+#include <Light.h>
 #include <GL/gl.h>
 
 struct Model {
@@ -11,10 +12,21 @@ struct Model {
     std::vector<Vertex3f> vertices;
     std::vector<unsigned int> indices;
     std::vector<Transformation> transformations;
+    //adicionado
+    std::vector<Vertex3f> normals;
+    std::vector<Vertex2f> texCoords;
+
+    //adicionado
+    Material material;
+    Texture texture;
+    bool hasTexture;
 
     GLuint vertexBuffer;
     GLuint indexBuffer;
     bool vboInitialized;
+    //adicionado
+    GLuint normalBuffer;
+    GLuint texCoordBuffer;
 };
 
 #endif
