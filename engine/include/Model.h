@@ -3,8 +3,15 @@
 
 #include <vector>
 #include <vertex.h>
-#include <Light.h>
+//#include <Light.h>
 #include <GL/gl.h>
+#include <string>
+
+struct Texture {
+    std::string filename;
+    GLuint textureID;
+    bool loaded;
+};
 
 struct Model {
     int n_vertices;
@@ -15,9 +22,6 @@ struct Model {
     //adicionado
     std::vector<Vertex3f> normals;
     std::vector<Vertex2f> texCoords;
-
-    //adicionado
-    Material material;
     Texture texture;
     bool hasTexture;
 

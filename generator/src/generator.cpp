@@ -45,13 +45,15 @@ Generator generatePlane(float size, int divisions) {
 
     return {vertices, indexes};
 }
-
+    //adicionado normais e texCoords
 Generator generateBox(float length, int divisions) {
     float step = length / divisions;
     float halfLength = length / 2.0f;
 
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
+    vector<Vertex3f> normals;
+    vector<Vertex2f> texCoords;
 
     cout << "Vertices" << endl;
     for (int face = 0; face < 6; ++face) {
@@ -61,28 +63,44 @@ Generator generateBox(float length, int divisions) {
                 float u = -halfLength + j * step;
 
                 Vertex3f vertex;
+                Vertex3f normal;
+                Vertex2f texCoord;
                 switch (face) {
                     case 0: // frente
                         vertex = {v, u, halfLength};
+                        normal = {0.0f, 0.0f, 1.0f};
+                        texCoord = {(j * step)/length, (i * step)/length};
                         break;
                     case 1: // trás
                         vertex = {v, u, -halfLength};
+                        normal = {0.0f, 0.0f, -1.0f};
+                        texCoord = {1.0f - (j * step)/length, (i * step)/length};
                         break;
                     case 2: // esquerda
                         vertex = {-halfLength, v, u};
+                        normal = {-1.0f, 0.0f, 0.0f};
+                        texCoord = {(j * step)/length, (i * step)/length};
                         break;
                     case 3: // direita
                         vertex = {halfLength, v, u};
+                        normal = {1.0f, 0.0f, 0.0f};
+                        texCoord = {1.0f - (j * step)/length, (i * step)/length};
                         break;
                     case 4: // cima
                         vertex = {v, halfLength, u};
+                        normal = {0.0f, 1.0f, 0.0f};
+                        texCoord = {(j * step)/length, 1.0f - (i * step)/length};
                         break;
                     case 5: // baixo
                         vertex = {v, -halfLength, u};
+                        normal = {0.0f, -1.0f, 0.0f};
+                        texCoord = {(j * step)/length, (i * step)/length};
                         break;
                 }
                 cout << vertex.x << vertex.y  << vertex.z << endl;
                 vertices.push_back(vertex);
+                normals.push_back(normal);
+                texCoords.push_back(texCoord);
             }
         }
     }
@@ -108,7 +126,7 @@ Generator generateBox(float length, int divisions) {
         }
     }
 
-    return {vertices, indexes};
+    return {vertices, indexes, normals, texCoords};
 }
 
 
@@ -415,10 +433,22 @@ bool SaveModel(const Generator &result, const std::string &filename)
         file << result.vertices.size() << " " << result.indices.size() / 3 << std::endl;
 
         // Escrever vértices
+        //isto no caso dos 3 terem o mesmo tamanho, se não é preciso separa em 3 ciclos
+        for (size_t i = 0; i < result.vertices.size(); i++) {
+          	file << result.vertices[i].x << " " << result.vertices[i].y << " " << result.vertices[i].z << std::endl;
+            //adicionado
+          	file << result.normals[i].x << " " << result.normals[i].y << " " << result.normals[i].z << std::endl;
+        	file << result.texCoords[i].x << " " << result.texCoords[i].y << std::endl;
+          }
+        /*
         for (const auto &vertex : result.vertices)
         {
             file << vertex.x << " " << vertex.y << " " << vertex.z << std::endl;
         }
+        */
+
+
+
 
         // Escrever faces (triângulos)
         for (size_t i = 0; i < result.indices.size(); i += 3)

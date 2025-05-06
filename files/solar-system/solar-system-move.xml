@@ -22,7 +22,16 @@
                 <rotate x="0" y="1" z="0" time="30" />
             </transform>
             <models>
-                <model file="sphere.3d" />
+                <model file="sphere.3d">
+                    <texture file="textures/sun.jpg" />
+                    <color>
+                        <diffuse R="255" G="200" B="100" />
+                        <ambient R="100" G="80" B="40" />
+                        <specular R="255" G="255" B="255" />
+                        <emissive R="50" G="50" B="0" />
+                        <shininess value="50" />
+                    </color>
+                </model>
             </models>
         </group>
 

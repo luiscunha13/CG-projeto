@@ -59,7 +59,7 @@ struct World {
     Camera camera;
     std::vector<Group> groups;
     //adicionado
-    std::vector<Light> lights;
+    //std::vector<Light> lights;
 };
 
 #endif

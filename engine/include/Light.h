@@ -1,4 +1,5 @@
-#ifndef LIGHT_H
+/*
+ #ifndef LIGHT_H
 #define LIGHT_H
 
 #include <vertex.h>
@@ -69,3 +70,4 @@ struct Light {
 };
 
 #endif // LIGHT_H
+*/

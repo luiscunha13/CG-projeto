@@ -9,6 +9,7 @@
     <group>
         <models>
             <model file="../models/box.3d" />
+                <texture file="../textures/2k_earth.jpg" />
         </models>
     </group>
 </world>

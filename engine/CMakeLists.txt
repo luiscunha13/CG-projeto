@@ -17,6 +17,28 @@ include_directories(include/)
 link_directories(${OpenGL_LIBRARY_DIRS})
 add_definitions(${OpenGL_DEFINITIONS})
 
+# Find DevIL
+find_package(DevIL REQUIRED)
+
+# If DevIL is not found using find_package, you can try using pkg-config as a fallback
+if(NOT DevIL_FOUND)
+	include(FindPkgConfig)
+	pkg_check_modules(DEVIL REQUIRED IL)
+	if(DEVIL_FOUND)
+		include_directories(${DEVIL_INCLUDE_DIRS})
+		link_directories(${DEVIL_LIBRARY_DIRS})
+		list(APPEND EXTRA_LIBS ${DEVIL_LIBRARIES})
+	else()
+		message(FATAL_ERROR "DevIL library not found!")
+	endif()
+else()
+	include_directories(${IL_INCLUDE_DIR})
+	list(APPEND EXTRA_LIBS ${IL_LIBRARIES})
+endif()
+
+# Make sure to link your executable with the DevIL libraries
+target_link_libraries(engine ${EXTRA_LIBS})
+
 if(NOT OPENGL_FOUND)
     message(ERROR " OPENGL not found!")
 endif(NOT OPENGL_FOUND)
