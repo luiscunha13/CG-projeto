@@ -36,7 +36,6 @@ Generator generatePlane(float size, int divisions) {
             vertex.t = z * texStep;
             vertices.push_back(vertex);
             cout << -middle + x * side << " 0 " << -middle + z * side << endl;
-            vertices.push_back(vertex);
         }
     }
 

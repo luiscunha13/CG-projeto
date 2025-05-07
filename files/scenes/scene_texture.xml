@@ -1,7 +1,7 @@
 <world>
     <window width="512" height="512" />
     <camera>
-        <position x="3" y="2" z="1" />
+        <position x="10" y="2" z="10" />
         <lookAt x="0" y="0" z="0" />
         <up x="0" y="1" z="0" />
         <projection fov="60" near="1" far="1000" />
@@ -23,8 +23,8 @@
             <rotate angle="180" x="0" y="0" z="1" />
         </transform>
         <models>
-            <model file="../models/boxtex.3d">
-                <texture file="../textures/dice_texture.png" />
+            <model file="../models/spheretex.3d">
+                <texture file="../textures/2k_earth.jpg" />
                 <color>
                     <diffuse R="255" G="255" B="255" />
                     <ambient R="50" G="50" B="50" />

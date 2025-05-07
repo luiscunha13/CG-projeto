@@ -303,31 +303,25 @@ void cleanupVBOs() {
 }
 
 void setupLighting(const World& world) {
-    const int MAX_LIGHTS = 8; // OpenGL normalmente só suporta 8 luzes
+    const int MAX_LIGHTS = 8;
 
     for (int i = 0; i < MAX_LIGHTS; i++) {
         glDisable(GL_LIGHT0 + i);
     }
 
     glEnable(GL_LIGHTING);
+    glEnable(GL_NORMALIZE);
+
+    float amb[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, amb);
 
     for (size_t i = 0; i < world.lights.size() && i < MAX_LIGHTS; i++) {
         GLenum lightID = GL_LIGHT0 + i;
         const Light& light = world.lights[i];
 
-        glEnable(lightID);
-
-        float ambient[4] = {0.2f, 0.2f, 0.2f, 1.0f};
-        float diffuse[4] = {0.8f, 0.8f, 0.8f, 1.0f};
-        float specular[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-
-        glLightfv(lightID, GL_AMBIENT, ambient);
-        glLightfv(lightID, GL_DIFFUSE, diffuse);
-        glLightfv(lightID, GL_SPECULAR, specular);
-
         switch (light.type) {
             case Light::DIRECTIONAL: {
-                float position[4] = {-light.direction.x, -light.direction.y, -light.direction.z, 0.0f};
+                float position[4] = {light.direction.x, light.direction.y, light.direction.z, 0.0f};
                 glLightfv(lightID, GL_POSITION, position);
                 break;
             }
@@ -336,9 +330,7 @@ void setupLighting(const World& world) {
                 float position[4] = {light.position.x, light.position.y, light.position.z, 1.0f};
                 glLightfv(lightID, GL_POSITION, position);
 
-                glLightf(lightID, GL_CONSTANT_ATTENUATION, 1.0f);
-                glLightf(lightID, GL_LINEAR_ATTENUATION, 0.0f);
-                glLightf(lightID, GL_QUADRATIC_ATTENUATION, 0.0f);
+
                 break;
             }
 
@@ -351,12 +343,11 @@ void setupLighting(const World& world) {
                 glLightf(lightID, GL_SPOT_CUTOFF, light.cutoff);
                 glLightf(lightID, GL_SPOT_EXPONENT, 30.0f);
 
-                glLightf(lightID, GL_CONSTANT_ATTENUATION, 1.0f);
-                glLightf(lightID, GL_LINEAR_ATTENUATION, 0.0f);
-                glLightf(lightID, GL_QUADRATIC_ATTENUATION, 0.0f);
+
                 break;
             }
         }
+        glEnable(lightID);
     }
 }
 
@@ -451,11 +442,11 @@ void renderModel(const Model& model) {
     float specular[] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
     float emissive[] = {model.material.emissive.x, model.material.emissive.y, model.material.emissive.z, 1.0f};
 
-    glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
-    glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
-    glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
-    glMaterialfv(GL_FRONT, GL_EMISSION, emissive);
-    glMaterialf(GL_FRONT, GL_SHININESS, model.material.shininess);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissive);
+    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, model.material.shininess);
 
     // Enable texture if available
     if (model.hasTexture) {
@@ -894,6 +885,7 @@ void run_engine(World new_world, int argc, char **argv) {
     glEnable(GL_LIGHTING);
     glEnable(GL_NORMALIZE);
     glEnable(GL_TEXTURE_2D);
+    glEnable(GL_RESCALE_NORMAL);
     glShadeModel(GL_SMOOTH);
 
     // Set default material properties
