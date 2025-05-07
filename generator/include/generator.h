@@ -12,9 +12,6 @@ namespace generator{
     struct Generator{
       std::vector<Vertex3f> vertices;
       std::vector<uint32_t> indices;
-       //adicionado
-      std::vector<Vertex3f> normals;
-      std::vector<Vertex2f> texCoords;
     };
 
     Generator generatePlane(float size, int divisions);

@@ -899,7 +899,6 @@ void run_engine(World new_world, int argc, char **argv) {
     // Set default material properties
     float global_ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
-    std::cout << "ola1" << std::endl;
 
     loadModels();
 

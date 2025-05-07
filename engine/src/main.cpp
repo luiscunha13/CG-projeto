@@ -64,6 +64,14 @@ void parseTransformation(XMLElement* transformElement, Group& group) {
 }
 
 void parseModels(XMLElement* modelsElement, Group& group) {
+
+    Material defaultMaterial;
+    defaultMaterial.diffuse = Vertex3f(200/255.0f, 200/255.0f, 200/255.0f);
+    defaultMaterial.ambient = Vertex3f(50/255.0f, 50/255.0f, 50/255.0f);
+    defaultMaterial.specular = Vertex3f(0, 0, 0);
+    defaultMaterial.emissive = Vertex3f(0, 0, 0);
+    defaultMaterial.shininess = 0;
+
     for (XMLElement* modelElement = modelsElement->FirstChildElement("model");
          modelElement;
          modelElement = modelElement->NextSiblingElement("model")) {
@@ -71,6 +79,8 @@ void parseModels(XMLElement* modelsElement, Group& group) {
         ModelInfo modelInfo;
         const char* file = modelElement->Attribute("file");
         if (file) modelInfo.file = file;
+
+        modelInfo.material = defaultMaterial;
 
         // Parse texture
         XMLElement* textureElement = modelElement->FirstChildElement("texture");
@@ -84,7 +94,7 @@ void parseModels(XMLElement* modelsElement, Group& group) {
         if (colorElement) {
             XMLElement* diffuseElement = colorElement->FirstChildElement("diffuse");
             if (diffuseElement) {
-                int r, g, b;
+                int r = 200, g = 200, b = 200;
                 diffuseElement->QueryIntAttribute("R", &r);
                 diffuseElement->QueryIntAttribute("G", &g);
                 diffuseElement->QueryIntAttribute("B", &b);
@@ -96,7 +106,7 @@ void parseModels(XMLElement* modelsElement, Group& group) {
 
             XMLElement* ambientElement = colorElement->FirstChildElement("ambient");
             if (ambientElement) {
-                int r, g, b;
+                int r = 50, g = 50, b = 50;
                 ambientElement->QueryIntAttribute("R", &r);
                 ambientElement->QueryIntAttribute("G", &g);
                 ambientElement->QueryIntAttribute("B", &b);
@@ -107,8 +117,8 @@ void parseModels(XMLElement* modelsElement, Group& group) {
             }
 
             XMLElement* specularElement = colorElement->FirstChildElement("specular");
-            if (diffuseElement) {
-                int r, g, b;
+            if (specularElement) {
+                int r = 0, g = 0, b = 0;
                 specularElement->QueryIntAttribute("R", &r);
                 specularElement->QueryIntAttribute("G", &g);
                 specularElement->QueryIntAttribute("B", &b);
@@ -119,8 +129,8 @@ void parseModels(XMLElement* modelsElement, Group& group) {
             }
 
             XMLElement* emissiveElement = colorElement->FirstChildElement("emissive");
-            if (diffuseElement){
-                int r, g, b;
+            if (emissiveElement){
+                int r = 0, g = 0, b = 0;
                 emissiveElement->QueryIntAttribute("R", &r);
                 emissiveElement->QueryIntAttribute("G", &g);
                 emissiveElement->QueryIntAttribute("B", &b);
@@ -132,7 +142,9 @@ void parseModels(XMLElement* modelsElement, Group& group) {
 
             XMLElement* shininessElement = colorElement->FirstChildElement("shininess");
             if (shininessElement) {
-                shininessElement->QueryFloatAttribute("value", &modelInfo.material.shininess);
+                float value = 0;
+                shininessElement->QueryFloatAttribute("value", &value);
+                modelInfo.material.shininess = value;
             }
         }
 
@@ -164,7 +176,12 @@ void printGroup(const Group& group, int depth = 0) {
     for (const auto& model : group.models) {
         cout << indent << "Model: " << model.file << endl;
         cout << indent << "Texture: " << model.texture << endl;
-
+        cout << indent << "Color: " << endl;
+        cout << indent << "Diffuse: R:" << model.material.diffuse.x << ", G: " << model.material.diffuse.y << ", B: " << model.material.diffuse.z << endl;
+        cout << indent << "Ambient: R:" << model.material.ambient.x << ", G: " << model.material.ambient.y << ", B: " << model.material.ambient.z << endl;
+        cout << indent << "Specular: R:" << model.material.specular.x << ", G: " << model.material.specular.y << ", B: " << model.material.specular.z << endl;
+        cout << indent << "Emissive: R:" << model.material.emissive.x << ", G: " << model.material.emissive.y << ", B: " << model.material.emissive.z << endl;
+        cout << indent << "Shininess: " << model.material.shininess << endl;
     }
 
     for (const auto& transformation : group.transformations) {
@@ -309,6 +326,22 @@ World *parse_scene(string filepath) {
     std::cout << "  Projection: FOV=" << world->camera.projection.fov
               << ", Near=" << world->camera.projection.near
               << ", Far=" << world->camera.projection.far << std::endl;
+    std::cout << "Lights:" << std::endl;
+
+    for(Light l : world->lights)
+        if(l.type == Light :: POINT)
+            std::cout << "type: Point" << ", posX:" << l.position.x
+            << ", posY:" << l.position.y << ", posZ:" << l.position.z << std::endl;
+        else if(l.type == Light :: DIRECTIONAL)
+            std::cout << "type: Directional" << ", dirX:" << l.direction.x
+                      << ", dirY:" << l.direction.y << ", dirZ:" << l.direction.z << std::endl;
+        else
+            std::cout << "type: Spotlight" << ", posX:" << l.position.x
+                      << ", posY:" << l.position.y << ", posZ:" << l.position.z
+                      << ", dirX:" << l.direction.x << ", dirY:" << l.direction.y
+                      << ", dirZ:" << l.direction.z << ", cutoff:" << l.cutoff << std::endl;
+
+
 
     std::cout << "Groups:" << std::endl;
     for (const auto& group : world->groups) {
