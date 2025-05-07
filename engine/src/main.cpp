@@ -74,7 +74,25 @@ void parseGroup(XMLElement* groupElement, Group& group){
         for (XMLElement* modelElement = modelsElement->FirstChildElement("model"); modelElement; modelElement = modelElement->NextSiblingElement("model")) {
             const char* file = modelElement->Attribute("file");
             if (file) {
+                //debug
+                std::cout << "Encontrado modelo: " << file << std::endl;
                 group.models.push_back(file);
+
+                // Parse texture for this model
+                XMLElement* textureElement = modelElement->FirstChildElement("texture");
+                if (textureElement) {
+                    const char* textureFile = textureElement->Attribute("file");
+                    if (textureFile) {
+                        std::cout << "Encontrada textura para modelo " << file << ": " << textureFile << std::endl;
+                        group.textures.push_back(textureFile);
+                    } else {
+                        std::cout << "Tag de textura sem atributo file para modelo " << file << std::endl;
+                        group.textures.push_back("");
+                    }
+                } else {
+                    std::cout << "Nenhuma textura encontrada para modelo " << file << std::endl;
+                    group.textures.push_back(""); // Empty string for models without texture
+                }
             }
         }
     }

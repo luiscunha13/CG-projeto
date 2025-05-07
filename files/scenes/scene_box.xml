@@ -8,8 +8,9 @@
     </camera>
     <group>
         <models>
-            <model file="../models/box.3d" />
-                <texture file="../textures/2k_earth.jpg" />
+            <model file="../models/box.3d">
+                <texture file="../textures/dice_texture.png" />
+            </model>
         </models>
     </group>
 </world>

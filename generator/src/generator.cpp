@@ -61,42 +61,55 @@ Generator generateBox(float length, int divisions) {
             for (int j = 0; j <= divisions; ++j) {
                 float v = -halfLength + i * step;
                 float u = -halfLength + j * step;
+                float s,t; //(u,v) mas para as texCoord
 
                 Vertex3f vertex;
                 Vertex3f normal;
                 Vertex2f texCoord;
+
+                float normalizedI = (float)i / divisions;
+                float normalizedJ = (float)j / divisions;
+
                 switch (face) {
                     case 0: // frente
                         vertex = {v, u, halfLength};
                         normal = {0.0f, 0.0f, 1.0f};
-                        texCoord = {(j * step)/length, (i * step)/length};
+                        s = 0.25f + normalizedJ * 0.25f; // [0.25, 0.5]
+                        t = 0.25f + normalizedI * 0.25f; // [0.25, 0.5]
                         break;
                     case 1: // trás
                         vertex = {v, u, -halfLength};
                         normal = {0.0f, 0.0f, -1.0f};
-                        texCoord = {1.0f - (j * step)/length, (i * step)/length};
+                        s = 0.75f + normalizedJ * 0.25f; // [0.75, 1.0]
+                        t = 0.25f + normalizedI * 0.25f; // [0.25, 0.5]
                         break;
                     case 2: // esquerda
                         vertex = {-halfLength, v, u};
                         normal = {-1.0f, 0.0f, 0.0f};
-                        texCoord = {(j * step)/length, (i * step)/length};
+                        s = normalizedJ * 0.25f; // [0, 0.25]
+                        t = 0.25f + normalizedI * 0.25f; // [0.25, 0.5]
                         break;
                     case 3: // direita
                         vertex = {halfLength, v, u};
                         normal = {1.0f, 0.0f, 0.0f};
-                        texCoord = {1.0f - (j * step)/length, (i * step)/length};
+                        s = 0.5f + normalizedJ * 0.25f; // [0.5, 0.75]
+                        t = 0.25f + normalizedI * 0.25f; // [0.25, 0.5]
                         break;
                     case 4: // cima
                         vertex = {v, halfLength, u};
                         normal = {0.0f, 1.0f, 0.0f};
-                        texCoord = {(j * step)/length, 1.0f - (i * step)/length};
+                        s = 0.25f + normalizedJ * 0.25f; // [0.25, 0.5]
+                        t = normalizedI * 0.25f; // [0, 0.25]
                         break;
                     case 5: // baixo
                         vertex = {v, -halfLength, u};
                         normal = {0.0f, -1.0f, 0.0f};
-                        texCoord = {(j * step)/length, (i * step)/length};
+                        s = 0.25f + normalizedJ * 0.25f; // [0.25, 0.5]
+                        t = 0.5f + normalizedI * 0.25f; // [0.5, 0.75]
                         break;
                 }
+                texCoord = {s, t};
+
                 cout << vertex.x << vertex.y  << vertex.z << endl;
                 vertices.push_back(vertex);
                 normals.push_back(normal);

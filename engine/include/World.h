@@ -50,6 +50,7 @@ struct Transformation{
 struct Group {
     std::vector<Transformation> transformations;
     std::vector<std::string> models;
+    std::vector<std::string> textures;
     std::vector<Group> childGroups;
 };
 
