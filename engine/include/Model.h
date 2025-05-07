@@ -13,10 +13,8 @@ struct Model {
     std::vector<Vertex3f> vertices;
     std::vector<unsigned int> indices;
     std::vector<Transformation> transformations;
-    //adicionado
-    std::vector<Vertex3f> normals;
-    std::vector<Vertex2f> texCoords;
-    Texture texture;
+
+    GLuint textureID;
     bool hasTexture;
     Material material;
     bool hasMaterial;
@@ -24,9 +22,6 @@ struct Model {
     GLuint vertexBuffer;
     GLuint indexBuffer;
     bool vboInitialized;
-    //adicionado
-    GLuint normalBuffer;
-    GLuint texCoordBuffer;
 };
 
 #endif

@@ -21,11 +21,22 @@ Generator generatePlane(float size, int divisions) {
 
     const float side = size / divisions;
     const float middle = size / 2;
+    const float texStep = 1.0f / divisions;
     cout << "Vertices" << endl;
     for (int z = 0; z < divisions + 1; ++z) {
         for (int x = 0; x < divisions + 1; ++x) {
+            Vertex3f vertex;
+            vertex.x = -middle + x * side;
+            vertex.y = 0;
+            vertex.z = -middle + z * side;
+            vertex.nx = 0;  // Normal points up (Y-axis)
+            vertex.ny = 1;
+            vertex.nz = 0;
+            vertex.s = x * texStep;  // Texture coordinates
+            vertex.t = z * texStep;
+            vertices.push_back(vertex);
             cout << -middle + x * side << " 0 " << -middle + z * side << endl;
-            vertices.push_back({-middle + x * side, 0, -middle + z * side});
+            vertices.push_back(vertex);
         }
     }
 
@@ -49,11 +60,10 @@ Generator generatePlane(float size, int divisions) {
 Generator generateBox(float length, int divisions) {
     float step = length / divisions;
     float halfLength = length / 2.0f;
+    float texStep = 1.0f / divisions;
 
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
-    vector<Vertex3f> normals;
-    vector<Vertex2f> texCoords;
 
     cout << "Vertices" << endl;
     for (int face = 0; face < 6; ++face) {
@@ -61,59 +71,31 @@ Generator generateBox(float length, int divisions) {
             for (int j = 0; j <= divisions; ++j) {
                 float v = -halfLength + i * step;
                 float u = -halfLength + j * step;
-                float s,t; //(u,v) mas para as texCoord
+                float texU = j * texStep;
+                float texV = i * texStep;
 
                 Vertex3f vertex;
-                Vertex3f normal;
-                Vertex2f texCoord;
-
-                float normalizedI = (float)i / divisions;
-                float normalizedJ = (float)j / divisions;
-
                 switch (face) {
-                    case 0: // frente
-                        vertex = {v, u, halfLength};
-                        normal = {0.0f, 0.0f, 1.0f};
-                        s = 0.25f + normalizedJ * 0.25f; // [0.25, 0.5]
-                        t = 0.25f + normalizedI * 0.25f; // [0.25, 0.5]
+                    case 0: // front
+                        vertex = {v, u, halfLength, 0, 0, 1, texU, texV};
                         break;
-                    case 1: // trás
-                        vertex = {v, u, -halfLength};
-                        normal = {0.0f, 0.0f, -1.0f};
-                        s = 0.75f + normalizedJ * 0.25f; // [0.75, 1.0]
-                        t = 0.25f + normalizedI * 0.25f; // [0.25, 0.5]
+                    case 1: // back
+                        vertex = {v, u, -halfLength, 0, 0, -1, texU, texV};
                         break;
-                    case 2: // esquerda
-                        vertex = {-halfLength, v, u};
-                        normal = {-1.0f, 0.0f, 0.0f};
-                        s = normalizedJ * 0.25f; // [0, 0.25]
-                        t = 0.25f + normalizedI * 0.25f; // [0.25, 0.5]
+                    case 2: // left
+                        vertex = {-halfLength, v, u, -1, 0, 0, texU, texV};
                         break;
-                    case 3: // direita
-                        vertex = {halfLength, v, u};
-                        normal = {1.0f, 0.0f, 0.0f};
-                        s = 0.5f + normalizedJ * 0.25f; // [0.5, 0.75]
-                        t = 0.25f + normalizedI * 0.25f; // [0.25, 0.5]
+                    case 3: // right
+                        vertex = {halfLength, v, u, 1, 0, 0, texU, texV};
                         break;
-                    case 4: // cima
-                        vertex = {v, halfLength, u};
-                        normal = {0.0f, 1.0f, 0.0f};
-                        s = 0.25f + normalizedJ * 0.25f; // [0.25, 0.5]
-                        t = normalizedI * 0.25f; // [0, 0.25]
+                    case 4: // top
+                        vertex = {v, halfLength, u, 0, 1, 0, texU, texV};
                         break;
-                    case 5: // baixo
-                        vertex = {v, -halfLength, u};
-                        normal = {0.0f, -1.0f, 0.0f};
-                        s = 0.25f + normalizedJ * 0.25f; // [0.25, 0.5]
-                        t = 0.5f + normalizedI * 0.25f; // [0.5, 0.75]
+                    case 5: // bottom
+                        vertex = {v, -halfLength, u, 0, -1, 0, texU, texV};
                         break;
                 }
-                texCoord = {s, t};
-
-                cout << vertex.x << vertex.y  << vertex.z << endl;
                 vertices.push_back(vertex);
-                normals.push_back(normal);
-                texCoords.push_back(texCoord);
             }
         }
     }
@@ -139,45 +121,61 @@ Generator generateBox(float length, int divisions) {
         }
     }
 
-    return {vertices, indexes, normals, texCoords};
-}
-
-
-Generator generateSphere(float radius, int stacks, int slices) {
-    vector<Vertex3f> vertices;
-    vector<unsigned int> indexes;
-
-    cout << "Vertices" << endl;
-    for (int i = 0; i <= stacks; ++i) {
-        float stackAngle = i * (M_PI / stacks) - M_PI / 2 ; //pi/2 a -pi/2
-        float xy = radius * cos(stackAngle); // distancia horizontal ao eixo
-        float z = radius * sin(stackAngle); // altura
-
-        for (int j = 0; j <= slices; ++j) {
-            float sliceAngle = j * (2 * M_PI / slices); // 0 a 2pi
-            float y = xy * cos(sliceAngle);
-            float x = xy * sin(sliceAngle);
-
-            cout << x << y  << z << endl;
-            vertices.push_back({x, y, z});
-        }
-    }
-
-    cout << "Indices" << endl;
-    for (int i = 0; i < stacks; ++i) {
-        for (int j = 0; j < slices; ++j) {
-            const uint32_t first = i * (slices + 1) + j;
-            const uint32_t second = first + slices + 1;
-
-            cout << first << " " << second << " " << second + 1 << endl;
-            cout << first << " " << second + 1 << " " << first + 1 << endl;
-            add3Items(first, second, second + 1, indexes);
-            add3Items(first, second + 1, first + 1, indexes);
-        }
-    }
-
     return {vertices, indexes};
 }
+
+
+    Generator generateSphere(float radius, int stacks, int slices) {
+        vector<Vertex3f> vertices;
+        vector<unsigned int> indexes;
+
+        // Generate vertices
+        for (int i = 0; i <= stacks; ++i) {
+            float stackAngle = i * (M_PI / stacks) - M_PI / 2;  // -pi/2 to pi/2
+            float xy = radius * cos(stackAngle);  // horizontal distance to axis
+            float z = radius * sin(stackAngle);   // height
+
+            // Correct texture V coordinate (0 to 1 from bottom to top)
+            float texV = 1.0f - (float)i / stacks;
+
+            for (int j = 0; j <= slices; ++j) {
+                float sliceAngle = j * (2 * M_PI / slices);  // 0 to 2pi
+                float x = xy * sin(sliceAngle);  // Use sin for x
+                float y = xy * cos(sliceAngle);  // Use cos for y
+
+                // Correct texture U coordinate (0 to 1 around the sphere)
+                float texU = (float)j / slices;
+
+                // Proper normal calculation (unit vector from center)
+                float nx = x / radius;
+                float ny = y / radius;
+                float nz = z / radius;
+
+                Vertex3f vertex = {x, y, z, nx, ny, nz, texU, texV};
+                vertices.push_back(vertex);
+            }
+        }
+
+        // Generate indices
+        for (int i = 0; i < stacks; ++i) {
+            for (int j = 0; j < slices; ++j) {
+                const uint32_t first = i * (slices + 1) + j;
+                const uint32_t second = first + slices + 1;
+
+                // First triangle
+                indexes.push_back(first);
+                indexes.push_back(second);
+                indexes.push_back(second + 1);
+
+                // Second triangle
+                indexes.push_back(first);
+                indexes.push_back(second + 1);
+                indexes.push_back(first + 1);
+            }
+        }
+
+        return {vertices, indexes};
+    }
 
 Generator generateCone(float radius, float height, unsigned int slices, unsigned int stacks) {
     vector<Vertex3f> vertices;
@@ -187,21 +185,37 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
     const double slice_size = 2 * M_PI / slices;
 
     cout << "Vertices" << endl;
-    const Vertex3f base_center = {0, 0, 0};
+    Vertex3f base_center = {0, 0, 0, 0, -1, 0, 0.5f, 0.5f};
     cout << 0 << 0  << 0 << endl;
     vertices.push_back(base_center);
 
     for (int slice = 0; slice <= slices; ++slice) {
         float angle = slice * slice_size;
+        float texU = (float)slice / slices;
 
         for (int stack = 0; stack <= stacks; ++stack) {
             const float current_radius = radius - stack * radius / stacks;
             float current_x = current_radius * cos(angle);
             float current_z = current_radius * sin(angle);
             float current_y = stack * stack_size;
+            float texV = (float)stack / stacks;
+
+            float normal_x = cos(angle);
+            float normal_y = radius / height;
+            float normal_z = sin(angle);
+            // Normalizar
+            float length = sqrt(normal_x*normal_x + normal_y*normal_y + normal_z*normal_z);
+            normal_x /= length;
+            normal_y /= length;
+            normal_z /= length;
 
             cout << current_x << current_y  << current_z << endl;
-            vertices.push_back({current_x, current_y, current_z});
+            Vertex3f vertex = {
+                    current_x, current_y, current_z,
+                    normal_x, normal_y, normal_z,
+                    texU, texV
+            };
+            vertices.push_back(vertex);
         }
     }
 
@@ -241,8 +255,8 @@ Generator generateCylinder(float radius, float height, unsigned int slices) {
     const double slice_size = 2 * M_PI / slices;
 
     cout << "Vertices" << endl;
-    const Vertex3f base_center = {0, 0, 0};
-    const Vertex3f top_center = {0, height, 0};
+    Vertex3f base_center = {0, 0, 0, 0, -1, 0, 0.5f, 0.5f};
+    Vertex3f top_center = {0, height, 0, 0, 1, 0, 0.5f, 0.5f};
     cout << 0 << 0 << 0 << endl;
     cout << 0 << height << 0 << endl;
     vertices.push_back(base_center);
@@ -255,9 +269,33 @@ Generator generateCylinder(float radius, float height, unsigned int slices) {
         float sinA = sin(angle);
 
         cout << radius * cosA << 0 << radius * sinA << endl;
-        vertices.push_back({radius * cosA, 0, radius * sinA});
+        Vertex3f base_vertex = {
+                radius * cosA, 0, radius * sinA,
+                0, -1, 0,
+                (cosA + 1) * 0.5f, (sinA + 1) * 0.5f
+        };
+        vertices.push_back(base_vertex);
         cout << radius * cosA << height << radius * sinA << endl;
-        vertices.push_back({radius * cosA, height, radius * sinA});
+        Vertex3f top_vertex = {
+                radius * cosA, height, radius * sinA,
+                0, 1, 0,
+                (cosA + 1) * 0.5f, (sinA + 1) * 0.5f
+        };
+        vertices.push_back(top_vertex);
+        /*
+        Vertex3f side_base = {
+                radius * cosA, 0, radius * sinA,
+                cosA, 0, sinA,
+                texU, 0
+        };
+        Vertex3f side_top = {
+                radius * cosA, height, radius * sinA,
+                cosA, 0, sinA,
+                texU, 1
+        };
+        vertices.push_back(side_base);
+        vertices.push_back(side_top);
+         */
     }
 
     cout << "Indices" << endl;
@@ -302,18 +340,25 @@ Generator generateTorus(float outerRadius, float innerRadius, unsigned int slice
         float sliceAngle = i * slice_size;
         float cosSlice = cos(sliceAngle);
         float sinSlice = sin(sliceAngle);
+        float texU = (float)i / slices;
 
         for (unsigned int j = 0; j <= stacks; ++j) {
             float stackAngle = j * stack_size;
             float cosStack = cos(stackAngle);
             float sinStack = sin(stackAngle);
+            float texV = (float)j / stacks;
 
             float x = (outerRadius + innerRadius * cosStack) * cosSlice;
             float y = (outerRadius + innerRadius * cosStack) * sinSlice;
             float z = innerRadius * sinStack;
 
+            float nx = cosSlice * cosStack;
+            float ny = sinSlice * cosStack;
+            float nz = sinStack;
+
             cout << x << y << z << endl;
-            vertices.push_back({x, y, z});
+            Vertex3f vertex = {x, y, z, nx, ny, nz, texU, texV};
+            vertices.push_back(vertex);
         }
     }
 
@@ -379,6 +424,7 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
         for (int i = 0; i <= tessellation; ++i) {
             const float u = float(i) / tessellation;
             const float u1 = 1.0f - u;
+            float texU = u;
 
             float Bu[4] = {
                     u1 * u1 * u1,
@@ -387,9 +433,17 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
                     u * u * u
             };
 
+            float dBu[4] = {
+                    -3 * u1 * u1,
+                    3 * u1 * u1 - 6 * u1 * u,
+                    6 * u1 * u - 3 * u * u,
+                    3 * u * u
+            };
+
             for (int j = 0; j <= tessellation; ++j) {
                 const float v = float(j) / tessellation;
                 const float v1 = 1.0f - v;
+                float texV = v;
 
                 float Bv[4] = {
                         v1 * v1 * v1,
@@ -398,15 +452,49 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
                         v * v * v
                 };
 
-                Vertex3f point = {0, 0, 0};
+                float dBv[4] = {
+                        -3 * v1 * v1,
+                        3 * v1 * v1 - 6 * v1 * v,
+                        6 * v1 * v - 3 * v * v,
+                        3 * v * v
+                };
+
+                Vertex3f point = {0, 0, 0, 0, 0, 0, texU, texV};
+                Vertex3f tangentU = {0, 0, 0, 0, 0, 0, 0, 0};
+                Vertex3f tangentV = {0, 0, 0, 0, 0, 0, 0, 0};
+
                 for (int k = 0; k < 4; ++k) {
                     for (int l = 0; l < 4; ++l) {
-                        // Get the control point using the indices from the patch
                         const Vertex3f& cp = controlPoints[indices[k * 4 + l]];
+
+                        // Position
                         point.x += cp.x * Bu[k] * Bv[l];
                         point.y += cp.y * Bu[k] * Bv[l];
                         point.z += cp.z * Bu[k] * Bv[l];
+
+                        // Tangent in u direction
+                        tangentU.x += cp.x * dBu[k] * Bv[l];
+                        tangentU.y += cp.y * dBu[k] * Bv[l];
+                        tangentU.z += cp.z * dBu[k] * Bv[l];
+
+                        // Tangent in v direction
+                        tangentV.x += cp.x * Bu[k] * dBv[l];
+                        tangentV.y += cp.y * Bu[k] * dBv[l];
+                        tangentV.z += cp.z * Bu[k] * dBv[l];
                     }
+                }
+
+                // Calculate normal as cross product of tangents
+                point.nx = tangentU.y * tangentV.z - tangentU.z * tangentV.y;
+                point.ny = tangentU.z * tangentV.x - tangentU.x * tangentV.z;
+                point.nz = tangentU.x * tangentV.y - tangentU.y * tangentV.x;
+
+                // Normalize the normal
+                float len = sqrt(point.nx*point.nx + point.ny*point.ny + point.nz*point.nz);
+                if (len > 0) {
+                    point.nx /= len;
+                    point.ny /= len;
+                    point.nz /= len;
                 }
 
                 cout << point.x << " " << point.y << " " << point.z << endl;
@@ -414,7 +502,7 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
             }
         }
 
-        cout << "Indices" << endl;
+        // Index generation remains the same as original
         for (int i = 0; i < tessellation; ++i) {
             for (int j = 0; j < tessellation; ++j) {
                 const uint32_t topLeft = baseIndex + i * (tessellation + 1) + j;
@@ -422,8 +510,6 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
                 const uint32_t bottomLeft = topLeft + (tessellation + 1);
                 const uint32_t bottomRight = bottomLeft + 1;
 
-                cout << topLeft << " " << bottomLeft << " " << bottomRight << endl;
-                cout << topLeft << " " << bottomRight << " " << topRight << endl;
                 add3Items(topLeft, bottomLeft, bottomRight, indexes);
                 add3Items(topLeft, bottomRight, topRight, indexes);
             }
@@ -445,27 +531,15 @@ bool SaveModel(const Generator &result, const std::string &filename)
         // Escrever cabeçalho
         file << result.vertices.size() << " " << result.indices.size() / 3 << std::endl;
 
-        // Escrever vértices
-        //isto no caso dos 3 terem o mesmo tamanho, se não é preciso separa em 3 ciclos
-        for (size_t i = 0; i < result.vertices.size(); i++) {
-          	file << result.vertices[i].x << " " << result.vertices[i].y << " " << result.vertices[i].z << std::endl;
-            //adicionado
-          	file << result.normals[i].x << " " << result.normals[i].y << " " << result.normals[i].z << std::endl;
-        	file << result.texCoords[i].x << " " << result.texCoords[i].y << std::endl;
-          }
-        /*
-        for (const auto &vertex : result.vertices)
-        {
-            file << vertex.x << " " << vertex.y << " " << vertex.z << std::endl;
+
+        for (const auto &vertex : result.vertices) {
+            file << vertex.x << " " << vertex.y << " " << vertex.z << " "
+                 << vertex.nx << " " << vertex.ny << " " << vertex.nz << " "
+                 << vertex.s << " " << vertex.t << std::endl;
         }
-        */
 
-
-
-
-        // Escrever faces (triângulos)
-        for (size_t i = 0; i < result.indices.size(); i += 3)
-        {
+        // Write faces (triangles)
+        for (size_t i = 0; i < result.indices.size(); i += 3) {
             file << result.indices[i] << " "
                  << result.indices[i+1] << " "
                  << result.indices[i+2] << std::endl;

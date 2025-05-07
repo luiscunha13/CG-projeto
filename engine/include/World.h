@@ -63,8 +63,10 @@ struct Group {
 struct World {
     Window window;
     Camera camera;
-    std::vector<Group> groups;
     std::vector<Light> lights;
+    std::vector<Group> groups;
+    //adicionado
+    //std::vector<Light> lights;
 };
 
 #endif

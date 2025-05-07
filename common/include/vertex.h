@@ -5,9 +5,12 @@
 
 struct Vertex3f {
     float x,y,z;
+    float nx, ny, nz; // Normal
+    float s, t;       // Textura
 
     Vertex3f() : x(0.0f), y(0.0f), z(0.0f) {}
-    Vertex3f(float x, float y, float z) : x(x), y(y), z(z) {}
+    Vertex3f(float x, float y, float z, float nx = 0, float ny = 0, float nz = 0, float s = 0, float t = 0)
+            : x(x), y(y), z(z), nx(nx), ny(ny), nz(nz), s(s), t(t) {}
 
     Vertex3f operator+(const Vertex3f& v) const {
        return Vertex3f(x + v.x, y + v.y, z + v.z);

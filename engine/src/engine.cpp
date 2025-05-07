@@ -5,14 +5,9 @@
 #include <Model.h>
 #include <vector>
 #include <string>
+#include <IL/il.h>
 #include <GL/glut.h>
 #include <unordered_set>
-#include <IL/il.h>
-#include <IL/ilu.h>
-
-
-
-
 
 World world = {};
 std::vector<Model> models;
@@ -36,32 +31,32 @@ float catmull_matrix[4][4] = {{-0.5f,  1.5f, -1.5f,  0.5f},
                               { 0.0f,  1.0f,  0.0f,  0.0f}};
 
 float hermite_matrix[4][4] = {{2.0f, -2.0f, 1.0f, 1.0f},
-                            {-3.0f, 3.0f, -2.0f, -1.0f},
-                            {0.0f, 0.0f, 1.0f, 0.0f},
-                            {1.0f, 0.0f, 0.0f, 0.0f}};
+                              {-3.0f, 3.0f, -2.0f, -1.0f},
+                              {0.0f, 0.0f, 1.0f, 0.0f},
+                              {1.0f, 0.0f, 0.0f, 0.0f}};
 
 
 void changeSize(int w, int h) {
 
-	if(h == 0)
-		h = 1;
+    if(h == 0)
+        h = 1;
 
-	// compute window's aspect ratio
-	float ratio = w * 1.0 / h;
+    // compute window's aspect ratio
+    float ratio = w * 1.0 / h;
 
-	// Set the projection matrix as current
-	glMatrixMode(GL_PROJECTION);
-	// Load Identity Matrix
-	glLoadIdentity();
+    // Set the projection matrix as current
+    glMatrixMode(GL_PROJECTION);
+    // Load Identity Matrix
+    glLoadIdentity();
 
-	// Set the viewport to be the entire window
+    // Set the viewport to be the entire window
     glViewport(0, 0, w, h);
 
-	// Set perspective
-	gluPerspective(fov ,ratio, 1.0f ,1000.0f);
+    // Set perspective
+    gluPerspective(fov ,ratio, 1.0f ,1000.0f);
 
-	// return to the model view matrix mode
-	glMatrixMode(GL_MODELVIEW);
+    // return to the model view matrix mode
+    glMatrixMode(GL_MODELVIEW);
 }
 
 void buildRotMatrix(float *x, float *y, float *z, float *m) {
@@ -101,11 +96,11 @@ void multMatrixVector(float *m, float *v, float *res) {
 std::vector<Vertex3f> calculateTangents(const std::vector<Vertex3f>& points) {
     int n = points.size();
     std::vector<Vertex3f> tangents(n);
-    
+
     for (int i = 0; i < n; i++) {
         int prev = (i - 1 + n) % n;
         int next = (i + 1) % n;
-        
+
         tangents[i].x = (points[next].x - points[prev].x) * 0.5f;
         tangents[i].y = (points[next].y - points[prev].y) * 0.5f;
         tangents[i].z = (points[next].z - points[prev].z) * 0.5f;
@@ -126,7 +121,7 @@ void getPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, f
         else{
             matrix = (float *)catmull_matrix;
         }
-        
+
         multMatrixVector(matrix, p, res);
         a[0][i] = res[0];
         a[1][i] = res[1];
@@ -140,7 +135,7 @@ void getPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, f
     for (int i = 0; i < 3; i++) {
         pos[i] = 0;
         deriv[i] = 0;
-        
+
         for (int j = 0; j < 4; j++) {
             pos[i] += t_vec[j] * a[j][i];
             deriv[i] += t_deriv[j] * a[j][i];
@@ -233,6 +228,7 @@ Vertex3f getPointOnCurve(const std::vector<Vertex3f>& points, float normalizedTi
     }
 }
 
+
 void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
     if (points.size() < 4) return;  // Need at least 4 points for Catmull-Rom
 
@@ -250,7 +246,7 @@ void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
 }
 
 void renderHermiteCurve(const std::vector<Vertex3f>& points, const std::vector<Vertex3f>& tangents) {
-    if (points.size() < 2 || tangents.size() < points.size()) return; 
+    if (points.size() < 2 || tangents.size() < points.size()) return;
 
     glColor3f(1.0f, 1.0f, 1.0f);
     glBegin(GL_LINE_LOOP);
@@ -274,60 +270,6 @@ void renderCurve(const std::vector<Vertex3f>& points, const std::string& algorit
     }
 }
 
-GLuint loadTexture(const std::string& filename) {
-    //debug
-    std::cout << "Tentando carregar textura: " << filename << std::endl;
-    // Inicialização única do DevIL
-    static bool devilInitialized = false;
-    if (!devilInitialized) {
-        ilInit();
-        ilEnable(IL_ORIGIN_SET);
-        ilOriginFunc(IL_ORIGIN_LOWER_LEFT);
-        devilInitialized = true;
-    }
-
-    unsigned int t, tw, th;
-    unsigned char *texData;
-    unsigned int texID;
-
-    // Carregar a textura
-    ilGenImages(1, &t);
-    ilBindImage(t);
-    if (!ilLoadImage((ILstring)filename.c_str())) {
-        ILenum error = ilGetError();
-        std::cerr << "Erro ao carregar textura: " << filename << " - Código de erro DevIL: " << error << std::endl;
-        ilDeleteImages(1, &t);
-        return 0;
-    }
-
-    tw = ilGetInteger(IL_IMAGE_WIDTH);
-    th = ilGetInteger(IL_IMAGE_HEIGHT);
-    ilConvertImage(IL_RGBA, IL_UNSIGNED_BYTE);
-    texData = ilGetData();
-
-    // Criar textura OpenGL
-    glGenTextures(1, &texID);
-    glBindTexture(GL_TEXTURE_2D, texID);
-
-    // Parâmetros da textura
-    glTexParameteri(GL_TEXTURE_2D,	GL_TEXTURE_WRAP_S,		GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D,	GL_TEXTURE_WRAP_T,		GL_REPEAT);
-
-	glTexParameteri(GL_TEXTURE_2D,	GL_TEXTURE_MAG_FILTER,   	GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D,	GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-    // Enviar dados para OpenGL
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    // Limpar
-    ilDeleteImages(1, &t);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    //debug
-    std::cout << "Textura carregada com sucesso: ID = " << texID << std::endl;
-    return texID;
-}
-
 void initModelVBOs(Model& model) {
     if (model.vboInitialized) return;
 
@@ -339,25 +281,6 @@ void initModelVBOs(Model& model) {
                  model.vertices.data(),
                  GL_STATIC_DRAW);
 
-    //adicionado
-    // Generate and bind normal buffer
-    glGenBuffers(1, &model.normalBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, model.normalBuffer);
-    glBufferData(GL_ARRAY_BUFFER,
-                 model.normals.size() * sizeof(Vertex3f),
-                 model.normals.data(),
-                 GL_STATIC_DRAW);
-    //adicionado
-    // Generate and bind texture coordinate buffer
-    glGenBuffers(1, &model.texCoordBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, model.texCoordBuffer);
-    glBufferData(GL_ARRAY_BUFFER,
-                 model.texCoords.size() * sizeof(Vertex2f),
-                 model.texCoords.data(),
-                 GL_STATIC_DRAW);
-
-
-
     // Generate and bind index buffer
     glGenBuffers(1, &model.indexBuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
@@ -366,28 +289,14 @@ void initModelVBOs(Model& model) {
                  model.indices.data(),
                  GL_STATIC_DRAW);
 
-    // Load texture if needed
-    if (model.hasTexture && !model.texture.filename.empty()) {
-        model.texture.textureID = loadTexture(model.texture.filename);
-        model.texture.loaded = (model.texture.textureID != 0);
-    }
-
     model.vboInitialized = true;
 }
-
 
 void cleanupVBOs() {
     for (auto& model : models) {
         if (model.vboInitialized) {
             glDeleteBuffers(1, &model.vertexBuffer);
-            glDeleteBuffers(1, &model.normalBuffer);
-            glDeleteBuffers(1, &model.texCoordBuffer);
             glDeleteBuffers(1, &model.indexBuffer);
-
-            if (model.hasTexture && model.texture.loaded) {
-                glDeleteTextures(1, &model.texture.textureID);
-            }
-
             model.vboInitialized = false;
         }
     }
@@ -419,7 +328,7 @@ void setupLighting(const World& world) {
 
         glLightfv(light, GL_POSITION, position);
 
-        if (l.type == Light::SPOTLIGHT) {
+        if (l.type == Light::SPOT) {
             direction[0] = l.direction.x;
             direction[1] = l.direction.y;
             direction[2] = l.direction.z;
@@ -428,13 +337,155 @@ void setupLighting(const World& world) {
         }
 
         // Set light colors (example values)
-        float ambient[] = {l.ambient.r, l.ambient.g, l.ambient.b, 1.0f};
-        float diffuse[] = {l.diffuse.r, l.diffuse.g, l.diffuse.b, 1.0f};
-        float specular[] = {l.specular.r, l.specular.g, l.specular.b, 1.0f};
+        float ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
+        float diffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
+        float specular[] = {1.0f, 1.0f, 1.0f, 1.0f};
 
         glLightfv(light, GL_AMBIENT, ambient);
         glLightfv(light, GL_DIFFUSE, diffuse);
         glLightfv(light, GL_SPECULAR, specular);
+    }
+}
+
+GLuint loadTexture(const std::string& s) {
+    // Basic file existence check
+    std::ifstream fileCheck(s);
+    if (!fileCheck) {
+        std::cerr << "ERROR: Texture file does not exist: " << s << std::endl;
+        return 0;
+    }
+    fileCheck.close();
+
+    unsigned int t, tw, th;
+    unsigned char *texData;
+    unsigned int texID = 0;
+
+    // Initialize DevIL if not already initialized
+    static bool ilInitialized = false;
+    if (!ilInitialized) {
+        ilInit();
+        ilEnable(IL_ORIGIN_SET);
+        ilOriginFunc(IL_ORIGIN_LOWER_LEFT);
+        ilInitialized = true;
+        std::cout << "DevIL initialized" << std::endl;
+    }
+
+    // Generate an IL image ID
+    ilGenImages(1, &t);
+    ilBindImage(t);
+
+    // Attempt to load image and report detailed errors
+    ILboolean success = ilLoadImage((ILstring)s.c_str());
+    if (!success) {
+        ILenum error = ilGetError();
+        std::cerr << "Failed to load image: " << s << std::endl;
+        ilDeleteImages(1, &t);
+        return 0;
+    }
+
+    // Convert the image to RGBA format
+    success = ilConvertImage(IL_RGBA, IL_UNSIGNED_BYTE);
+    if (!success) {
+        ILenum error = ilGetError();
+        std::cerr << "Failed to convert image: " << s << std::endl;
+        ilDeleteImages(1, &t);
+        return 0;
+    }
+
+    // Get image dimensions and data
+    tw = ilGetInteger(IL_IMAGE_WIDTH);
+    th = ilGetInteger(IL_IMAGE_HEIGHT);
+    texData = ilGetData();
+
+    std::cout << "Successfully loaded image: " << s << " (" << tw << "x" << th << ")" << std::endl;
+
+    // Generate OpenGL texture
+    glGenTextures(1, &texID);
+    if (texID == 0) {
+        std::cerr << "Failed to generate GL texture ID" << std::endl;
+        ilDeleteImages(1, &t);
+        return 0;
+    }
+
+    // Bind and set texture parameters
+    glBindTexture(GL_TEXTURE_2D, texID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    // Upload texture data
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
+
+    // Check for OpenGL errors
+    GLenum glError = glGetError();
+    if (glError != GL_NO_ERROR) {
+        std::cerr << "OpenGL Error in texture creation: " << glError << std::endl;
+    } else {
+        std::cout << "Successfully created GL texture with ID: " << texID << std::endl;
+    }
+
+    // Clean up IL image
+    ilDeleteImages(1, &t);
+
+    return texID;
+}
+
+void renderModel(const Model& model) {
+    // Set material properties
+    float diffuse[] = {model.material.diffuse.x, model.material.diffuse.y, model.material.diffuse.z, 1.0f};
+    float ambient[] = {model.material.ambient.x, model.material.ambient.y, model.material.ambient.z, 1.0f};
+    float specular[] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
+    float emissive[] = {model.material.emissive.x, model.material.emissive.y, model.material.emissive.z, 1.0f};
+
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
+    glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
+    glMaterialfv(GL_FRONT, GL_EMISSION, emissive);
+    glMaterialf(GL_FRONT, GL_SHININESS, model.material.shininess);
+
+    // Enable texture if available
+    if (model.hasTexture) {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, model.textureID);
+    } else {
+        glDisable(GL_TEXTURE_2D);
+    }
+
+    // Bind the vertex buffer
+    glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
+
+    // Set up vertex arrays
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(3, GL_FLOAT, sizeof(Vertex3f), 0);
+
+    // Set up normal arrays
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glNormalPointer(GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, nx));
+
+    // Set up texture coordinate arrays if texture exists
+    if (model.hasTexture) {
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, s));
+    }
+
+    // Bind the index buffer and draw
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+    glDrawElements(GL_TRIANGLES, model.n_indices, GL_UNSIGNED_INT, 0);
+
+    // Cleanup
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+    if (model.hasTexture) {
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    }
+
+    // Unbind buffers
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    if (model.hasTexture) {
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 }
 
@@ -448,9 +499,14 @@ void renderScene() {
     gluLookAt(camX,camY,camZ,
               lookAtX, lookAtY, lookAtZ,
               upX, upY, upZ);
-    glEnable(GL_LIGHTING);
+
     setupLighting(world);
-    glDisable(GL_LIGHTING);
+
+    // Enable lighting and depth test
+    glEnable(GL_LIGHTING);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_NORMALIZE);
+
     //desenhar eixos
     glBegin(GL_LINES);
     // X Red
@@ -467,8 +523,6 @@ void renderScene() {
     glVertex3f(0.0f, 0.0f, 100.0f);
     glColor3f(1.0f, 1.0f, 1.0f);
     glEnd();
-    glEnable(GL_LIGHTING);
-
     /*
     for (const auto& model : models) {
         for (const auto& transformation : model.transformations) {
@@ -481,11 +535,9 @@ void renderScene() {
         }
     }
     */
-
-
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
 
-	for (auto& model : models) {
+    for (auto& model : models) {
         glPushMatrix();
 
         for (auto& transformation : model.transformations) {
@@ -495,10 +547,10 @@ void renderScene() {
                         // Time-based
                         float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f; // convert to seconds
                         float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
-                        
+
                         float deriv[3];
                         Vertex3f point = getPointOnCurve(
-                                transformation.animation.points, 
+                                transformation.animation.points,
                                 normalizedTime,
                                 transformation.animation.align ? deriv : nullptr,
                                 transformation.animation.algorithm);
@@ -546,8 +598,8 @@ void renderScene() {
 
                 case Transformation::Type::Scale:
                     glScalef(transformation.coords.x,
-                              transformation.coords.y,
-                              transformation.coords.z);
+                             transformation.coords.y,
+                             transformation.coords.z);
                     break;
             }
         }
@@ -555,59 +607,10 @@ void renderScene() {
         if (!model.vboInitialized) {
             initModelVBOs(model);
         }
+        renderModel(model);
 
-	    // Set up vertex arrays
-	    glEnableClientState(GL_VERTEX_ARRAY);
-	    glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
-	    glVertexPointer(3, GL_FLOAT, 0, 0);
-
-	    // Setup normal arrays
-	    glEnableClientState(GL_NORMAL_ARRAY);
-	    glBindBuffer(GL_ARRAY_BUFFER, model.normalBuffer);
-	    glNormalPointer(GL_FLOAT, 0, 0);
-
-        float diffuse[] = {model.material.diffuse.r, model.material.diffuse.g, model.material.diffuse.b, 1.0f};
-        float ambient[] = {model.material.ambient.r, model.material.ambient.g, model.material.ambient.b, 1.0f};
-        float specular[] = {model.material.specular.r, model.material.specular.g, model.material.specular.b, 1.0f};
-        float emissive[] = {model.material.emissive.r, model.material.emissive.g, model.material.emissive.b, 1.0f};
-
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
-        glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
-        glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
-        glMaterialfv(GL_FRONT, GL_EMISSION, emissive);
-        glMaterialf(GL_FRONT, GL_SHININESS, model.material.shininess);
-
-	    // Enable and bind texture coordinate array if available
-	    if (model.hasTexture && model.texture.loaded) {
-	        glEnable(GL_TEXTURE_2D);
-	        glBindTexture(GL_TEXTURE_2D, model.texture.textureID);
-
-	        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	        glBindBuffer(GL_ARRAY_BUFFER, model.texCoordBuffer);
-	        glTexCoordPointer(2, GL_FLOAT, 0, 0);
-	    }
-
-	    // Draw the model
-	    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
-	    glDrawElements(GL_TRIANGLES, model.n_indices, GL_UNSIGNED_INT, 0);
-
-	    // Cleanup texture state
-	    if (model.hasTexture && model.texture.loaded) {
-	        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	        glDisable(GL_TEXTURE_2D);
-	        glBindTexture(GL_TEXTURE_2D, 0);
-	    }
-
-	    // Cleanup vertex array state
-	    glDisableClientState(GL_VERTEX_ARRAY);
-	    glDisableClientState(GL_NORMAL_ARRAY);
-
-	    // Unbind buffers
-	    glBindBuffer(GL_ARRAY_BUFFER, 0);
-	    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-	    glPopMatrix();
-	}
+        glPopMatrix();
+    }
 
     glutSwapBuffers();
     glutPostRedisplay();
@@ -638,7 +641,6 @@ void initializeCamera() {
     float horizontalDistance = sqrt(dx*dx + dz*dz);
     vAngle = atan2(dy, horizontalDistance);
 
-    // Print initial camera state for debugging
     std::cout << "Initial Camera Position: ("
               << camX << ", " << camY << ", " << camZ << ")" << std::endl;
     std::cout << "Initial Look-At: ("
@@ -788,36 +790,20 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
 
     // Resize the vertices vector
     model.vertices.resize(model.n_vertices);
-    //adicionado
-    model.normals.resize(model.n_vertices);
-    model.texCoords.resize(model.n_vertices);
 
-    // Read vertices
+
+    // Read vertices with normals and texture coordinates
     for (int i = 0; i < model.n_vertices; i++) {
-        if (!(file >> model.vertices[i].x >> model.vertices[i].y >> model.vertices[i].z)) {
+        Vertex3f& v = model.vertices[i];
+        if (!(file >> v.x >> v.y >> v.z >> v.nx >> v.ny >> v.nz >> v.s >> v.t)) {
             std::cerr << "Error reading vertex " << i << " from " << filename << std::endl;
             file.close();
             return false;
         }
-        //adicionado
-        if (!(file >> model.normals[i].x >> model.normals[i].y >> model.normals[i].z)) {
-            std::cerr << "Error reading normal " << i << " from " << filename << std::endl;
-            file.close();
-            return false;
-        }
-        //adicionado
-        if (!(file >> model.texCoords[i].x >> model.texCoords[i].y)) {
-            std::cerr << "Error reading texture coordinate " << i << " from " << filename << std::endl;
-            file.close();
-            return false;
-        }
-
     }
 
-    // Resize the indices vector
-    model.indices.resize(model.n_indices);
-
     // Read indices
+    model.indices.resize(model.n_indices);
     for (int i = 0; i < model.n_indices; i++) {
         if (!(file >> model.indices[i])) {
             std::cerr << "Error reading index " << i << " from " << filename << std::endl;
@@ -826,26 +812,17 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
         }
     }
 
-    model.material = modelInfo.material;
 
+    // Set material and texture
+    model.material = modelInfo.material;
     if (!modelInfo.texture.empty()) {
-        model.texture.filename = modelInfo.texture;
-        model.hasTexture = true;
+        model.textureID = loadTexture(modelInfo.texture);
+        model.hasTexture = (model.textureID != 0);
     } else {
         model.hasTexture = false;
     }
-    //adicionado
-
-    model.texture.loaded = false;
-    model.texture.textureID = 0;
 
     model.vboInitialized = false;
-    model.vertexBuffer = {};
-    model.indexBuffer = {};
-    //adicionado
-    model.normalBuffer = {};
-    model.texCoordBuffer = {};
-
     file.close();
     return true;
 }
@@ -877,12 +854,9 @@ void loadModels() {
 }
 
 void run_engine(World new_world, int argc, char **argv) {
-	world = new_world;
-
+    world = new_world;
     initializeCamera();
 
-
-    // init GLUT and the window
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DEPTH|GLUT_DOUBLE|GLUT_RGBA);
     glutInitWindowPosition(100,100);
@@ -895,48 +869,30 @@ void run_engine(World new_world, int argc, char **argv) {
         exit(1);
     }
 
-    // Required callback registry
     glutDisplayFunc(renderScene);
     glutReshapeFunc(changeSize);
-
-    // put here the registration of the keyboard callbacks
-	glutKeyboardFunc(processKeys);
+    glutKeyboardFunc(processKeys);
     glutMotionFunc(processMouseMotion);
     glutMouseFunc(processMouseButtons);
 
-    //  OpenGL settings
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
-
-	glPolygonMode(GL_FRONT, GL_FILL);
-
-    // Lighting setup
     glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
     glEnable(GL_NORMALIZE);
     glEnable(GL_TEXTURE_2D);
     glShadeModel(GL_SMOOTH);
 
-    // Simple lighting setup
-    float ambient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-    float diffuse[] = { 0.8f, 0.8f, 0.8f, 1.0f };
-    float specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    float position[] = { 1.0f, 1.0f, 1.0f, 0.0f };
+    // Set default material properties
+    float global_ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
+    std::cout << "ola1" << std::endl;
 
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
-    glLightfv(GL_LIGHT0, GL_POSITION, position);
-
-    // Enable color material for simpler material settings
-    glEnable(GL_COLOR_MATERIAL);
-    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-
-    // Load all models
     loadModels();
 
-    updateCamera();
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+    updateCamera();
     atexit(cleanupVBOs);
 
     // enter GLUT's main cycle

@@ -89,9 +89,9 @@ void parseModels(XMLElement* modelsElement, Group& group) {
                 diffuseElement->QueryIntAttribute("G", &g);
                 diffuseElement->QueryIntAttribute("B", &b);
                 // Convert from 0-255 to 0.0-1.0
-                modelInfo.material.diffuse.r = r / 255.0f;
-                modelInfo.material.diffuse.g = g / 255.0f;
-                modelInfo.material.diffuse.b = b / 255.0f;
+                modelInfo.material.diffuse.x = r / 255.0f;
+                modelInfo.material.diffuse.y = g / 255.0f;
+                modelInfo.material.diffuse.z = b / 255.0f;
             }
 
             XMLElement* ambientElement = colorElement->FirstChildElement("ambient");
@@ -101,9 +101,9 @@ void parseModels(XMLElement* modelsElement, Group& group) {
                 ambientElement->QueryIntAttribute("G", &g);
                 ambientElement->QueryIntAttribute("B", &b);
                 // Convert from 0-255 to 0.0-1.0
-                modelInfo.material.ambient.r = r / 255.0f;
-                modelInfo.material.ambient.g = g / 255.0f;
-                modelInfo.material.ambient.b = b / 255.0f;
+                modelInfo.material.ambient.x = r / 255.0f;
+                modelInfo.material.ambient.y = g / 255.0f;
+                modelInfo.material.ambient.z = b / 255.0f;
             }
 
             XMLElement* specularElement = colorElement->FirstChildElement("specular");
@@ -113,9 +113,9 @@ void parseModels(XMLElement* modelsElement, Group& group) {
                 specularElement->QueryIntAttribute("G", &g);
                 specularElement->QueryIntAttribute("B", &b);
                 // Convert from 0-255 to 0.0-1.0
-                modelInfo.material.specular.r = r / 255.0f;
-                modelInfo.material.specular.g = g / 255.0f;
-                modelInfo.material.specular.b = b / 255.0f;
+                modelInfo.material.specular.x = r / 255.0f;
+                modelInfo.material.specular.y = g / 255.0f;
+                modelInfo.material.specular.z = b / 255.0f;
             }
 
             XMLElement* emissiveElement = colorElement->FirstChildElement("emissive");
@@ -125,9 +125,9 @@ void parseModels(XMLElement* modelsElement, Group& group) {
                 emissiveElement->QueryIntAttribute("G", &g);
                 emissiveElement->QueryIntAttribute("B", &b);
                 // Convert from 0-255 to 0.0-1.0
-                modelInfo.material.emissive.r = r / 255.0f;
-                modelInfo.material.emissive.g = g / 255.0f;
-                modelInfo.material.emissive.b = b / 255.0f;
+                modelInfo.material.emissive.x = r / 255.0f;
+                modelInfo.material.emissive.y = g / 255.0f;
+                modelInfo.material.emissive.z = b / 255.0f;
             }
 
             XMLElement* shininessElement = colorElement->FirstChildElement("shininess");
@@ -273,7 +273,7 @@ World *parse_scene(string filepath) {
             const char* type = lightElement->Attribute("type");
             if (strcmp(type, "point") == 0) light.type = Light::POINT;
             else if (strcmp(type, "directional") == 0) light.type = Light::DIRECTIONAL;
-            else if (strcmp(type, "spotlight") == 0) light.type = Light::SPOTLIGHT;
+            else if (strcmp(type, "spotlight") == 0) light.type = Light::SPOT;
 
             lightElement->QueryFloatAttribute("posX", &light.position.x);
             lightElement->QueryFloatAttribute("posY", &light.position.y);

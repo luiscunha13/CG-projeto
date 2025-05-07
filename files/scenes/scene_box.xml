@@ -6,29 +6,10 @@
         <up x="0" y="1" z="0" />
         <projection fov="60" near="1" far="1000" />
     </camera>
-    <lights>
-        <!-- Point light -->
-        <light type="point" posX="2" posY="5" posZ="0" />
-
-        <!-- Directional light -->
-        <light type="directional" dirX="-1" dirY="-1" dirZ="-1" />
-
-        <!-- Spotlight -->
-        <light type="spotlight" posX="0" posY="5" posZ="0"
-               dirX="0" dirY="-1" dirZ="0" cutoff="30" />
-    </lights>
     <group>
         <models>
-            <model file="../models/box.3d">
-                <texture file="../textures/dice_texture.png" />
-                <color>
-                    <diffuse R="255" G="255" B="255" />
-                    <ambient R="50" G="50" B="50" />
-                    <specular R="255" G="255" B="255" />
-                    <emissive R="0" G="0" B="0" />
-                    <shininess value="100" />
-                </color>
-            </model>
+            <model file="../models/box.3d" />
+                <texture file="../textures/2k_earth.jpg" />
         </models>
     </group>
 </world>
