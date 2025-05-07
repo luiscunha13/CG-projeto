@@ -70,11 +70,5 @@ struct Vertex3f {
 inline Vertex3f operator*(float scalar, const Vertex3f& v) {
   return v * scalar;
 }
-//adicionado para o texCoord
-struct Vertex2f {
-    float x,y;
-    Vertex2f() : x(0.0f), y(0.0f) {}
-    Vertex2f(float x, float y) : x(x), y(y) {}
-};
 
 #endif // VERTEX_H

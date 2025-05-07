@@ -65,8 +65,6 @@ struct World {
     Camera camera;
     std::vector<Light> lights;
     std::vector<Group> groups;
-    //adicionado
-    //std::vector<Light> lights;
 };
 
 #endif

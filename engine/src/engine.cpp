@@ -303,47 +303,60 @@ void cleanupVBOs() {
 }
 
 void setupLighting(const World& world) {
+    const int MAX_LIGHTS = 8; // OpenGL normalmente só suporta 8 luzes
+
+    for (int i = 0; i < MAX_LIGHTS; i++) {
+        glDisable(GL_LIGHT0 + i);
+    }
+
     glEnable(GL_LIGHTING);
 
-    for (size_t i = 0; i < world.lights.size() && i < 8; i++) {
-        GLenum light = GL_LIGHT0 + i;
-        glEnable(light);
+    for (size_t i = 0; i < world.lights.size() && i < MAX_LIGHTS; i++) {
+        GLenum lightID = GL_LIGHT0 + i;
+        const Light& light = world.lights[i];
 
-        const Light& l = world.lights[i];
+        glEnable(lightID);
 
-        float position[4];
-        float direction[3];
+        float ambient[4] = {0.2f, 0.2f, 0.2f, 1.0f};
+        float diffuse[4] = {0.8f, 0.8f, 0.8f, 1.0f};
+        float specular[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
-        if (l.type == Light::DIRECTIONAL) {
-            position[0] = -l.direction.x;
-            position[1] = -l.direction.y;
-            position[2] = -l.direction.z;
-            position[3] = 0.0f;  // Directional light
-        } else {
-            position[0] = l.position.x;
-            position[1] = l.position.y;
-            position[2] = l.position.z;
-            position[3] = 1.0f;  // Positional light
+        glLightfv(lightID, GL_AMBIENT, ambient);
+        glLightfv(lightID, GL_DIFFUSE, diffuse);
+        glLightfv(lightID, GL_SPECULAR, specular);
+
+        switch (light.type) {
+            case Light::DIRECTIONAL: {
+                float position[4] = {-light.direction.x, -light.direction.y, -light.direction.z, 0.0f};
+                glLightfv(lightID, GL_POSITION, position);
+                break;
+            }
+
+            case Light::POINT: {
+                float position[4] = {light.position.x, light.position.y, light.position.z, 1.0f};
+                glLightfv(lightID, GL_POSITION, position);
+
+                glLightf(lightID, GL_CONSTANT_ATTENUATION, 1.0f);
+                glLightf(lightID, GL_LINEAR_ATTENUATION, 0.0f);
+                glLightf(lightID, GL_QUADRATIC_ATTENUATION, 0.0f);
+                break;
+            }
+
+            case Light::SPOT: {
+                float position[4] = {light.position.x, light.position.y, light.position.z, 1.0f};
+                float direction[3] = {light.direction.x, light.direction.y, light.direction.z};
+
+                glLightfv(lightID, GL_POSITION, position);
+                glLightfv(lightID, GL_SPOT_DIRECTION, direction);
+                glLightf(lightID, GL_SPOT_CUTOFF, light.cutoff);
+                glLightf(lightID, GL_SPOT_EXPONENT, 30.0f);
+
+                glLightf(lightID, GL_CONSTANT_ATTENUATION, 1.0f);
+                glLightf(lightID, GL_LINEAR_ATTENUATION, 0.0f);
+                glLightf(lightID, GL_QUADRATIC_ATTENUATION, 0.0f);
+                break;
+            }
         }
-
-        glLightfv(light, GL_POSITION, position);
-
-        if (l.type == Light::SPOT) {
-            direction[0] = l.direction.x;
-            direction[1] = l.direction.y;
-            direction[2] = l.direction.z;
-            glLightfv(light, GL_SPOT_DIRECTION, direction);
-            glLightf(light, GL_SPOT_CUTOFF, l.cutoff);
-        }
-
-        // Set light colors (example values)
-        float ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
-        float diffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
-        float specular[] = {1.0f, 1.0f, 1.0f, 1.0f};
-
-        glLightfv(light, GL_AMBIENT, ambient);
-        glLightfv(light, GL_DIFFUSE, diffuse);
-        glLightfv(light, GL_SPECULAR, specular);
     }
 }
 
