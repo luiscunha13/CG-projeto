@@ -393,6 +393,51 @@ void cleanupVBOs() {
     }
 }
 
+void setupLighting(const World& world) {
+    glEnable(GL_LIGHTING);
+
+    for (size_t i = 0; i < world.lights.size() && i < 8; i++) {
+        GLenum light = GL_LIGHT0 + i;
+        glEnable(light);
+
+        const Light& l = world.lights[i];
+
+        float position[4];
+        float direction[3];
+
+        if (l.type == Light::DIRECTIONAL) {
+            position[0] = -l.direction.x;
+            position[1] = -l.direction.y;
+            position[2] = -l.direction.z;
+            position[3] = 0.0f;  // Directional light
+        } else {
+            position[0] = l.position.x;
+            position[1] = l.position.y;
+            position[2] = l.position.z;
+            position[3] = 1.0f;  // Positional light
+        }
+
+        glLightfv(light, GL_POSITION, position);
+
+        if (l.type == Light::SPOTLIGHT) {
+            direction[0] = l.direction.x;
+            direction[1] = l.direction.y;
+            direction[2] = l.direction.z;
+            glLightfv(light, GL_SPOT_DIRECTION, direction);
+            glLightf(light, GL_SPOT_CUTOFF, l.cutoff);
+        }
+
+        // Set light colors (example values)
+        float ambient[] = {l.ambient.r, l.ambient.g, l.ambient.b, 1.0f};
+        float diffuse[] = {l.diffuse.r, l.diffuse.g, l.diffuse.b, 1.0f};
+        float specular[] = {l.specular.r, l.specular.g, l.specular.b, 1.0f};
+
+        glLightfv(light, GL_AMBIENT, ambient);
+        glLightfv(light, GL_DIFFUSE, diffuse);
+        glLightfv(light, GL_SPECULAR, specular);
+    }
+}
+
 void renderScene() {
 
     // clear buffers
@@ -403,7 +448,9 @@ void renderScene() {
     gluLookAt(camX,camY,camZ,
               lookAtX, lookAtY, lookAtZ,
               upX, upY, upZ);
-
+    glEnable(GL_LIGHTING);
+    setupLighting(world);
+    glDisable(GL_LIGHTING);
     //desenhar eixos
     glBegin(GL_LINES);
     // X Red
@@ -420,6 +467,7 @@ void renderScene() {
     glVertex3f(0.0f, 0.0f, 100.0f);
     glColor3f(1.0f, 1.0f, 1.0f);
     glEnd();
+    glEnable(GL_LIGHTING);
 
     /*
     for (const auto& model : models) {
@@ -434,9 +482,6 @@ void renderScene() {
     }
     */
 
-    //Setup Lighting
-    float pos[4] = {1.0, 1.0, 1.0, 0.0};
-    glLightfv(GL_LIGHT0, GL_POSITION, pos);
 
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
 
@@ -511,17 +556,6 @@ void renderScene() {
             initModelVBOs(model);
         }
 
-	    // Set material properties - white by default
-	    float diffuse[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-	    float ambient[4] = {0.2f, 0.2f, 0.2f, 1.0f};
-	    float specular[4] = {0.8f, 0.8f, 0.8f, 1.0f};
-	    float shininess = 100.0f;
-
-	    glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
-	    glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
-	    glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
-	    glMaterialf(GL_FRONT, GL_SHININESS, shininess);
-
 	    // Set up vertex arrays
 	    glEnableClientState(GL_VERTEX_ARRAY);
 	    glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
@@ -531,6 +565,17 @@ void renderScene() {
 	    glEnableClientState(GL_NORMAL_ARRAY);
 	    glBindBuffer(GL_ARRAY_BUFFER, model.normalBuffer);
 	    glNormalPointer(GL_FLOAT, 0, 0);
+
+        float diffuse[] = {model.material.diffuse.r, model.material.diffuse.g, model.material.diffuse.b, 1.0f};
+        float ambient[] = {model.material.ambient.r, model.material.ambient.g, model.material.ambient.b, 1.0f};
+        float specular[] = {model.material.specular.r, model.material.specular.g, model.material.specular.b, 1.0f};
+        float emissive[] = {model.material.emissive.r, model.material.emissive.g, model.material.emissive.b, 1.0f};
+
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
+        glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
+        glMaterialfv(GL_FRONT, GL_EMISSION, emissive);
+        glMaterialf(GL_FRONT, GL_SHININESS, model.material.shininess);
 
 	    // Enable and bind texture coordinate array if available
 	    if (model.hasTexture && model.texture.loaded) {
@@ -723,7 +768,7 @@ void processMouseButtons(int button, int state, int x, int y) {
 }
 
 
-bool readModelFromFile(const std::string& filename, Model& model) {
+bool readModelFromFile(const std::string& filename, Model& model, const ModelInfo& modelInfo) {
     std::ifstream file(filename);
 
     if (!file.is_open()) {
@@ -780,9 +825,17 @@ bool readModelFromFile(const std::string& filename, Model& model) {
             return false;
         }
     }
+
+    model.material = modelInfo.material;
+
+    if (!modelInfo.texture.empty()) {
+        model.texture.filename = modelInfo.texture;
+        model.hasTexture = true;
+    } else {
+        model.hasTexture = false;
+    }
     //adicionado
-    // Initialize texture as not loaded by default
-    model.hasTexture = false;
+
     model.texture.loaded = false;
     model.texture.textureID = 0;
 
@@ -797,43 +850,21 @@ bool readModelFromFile(const std::string& filename, Model& model) {
     return true;
 }
 
-void loadModelsGroup(const Group& group,  const std::vector<Transformation>& parentTransformations) {
-
+void loadModelsGroup(const Group& group, const std::vector<Transformation>& parentTransformations) {
     std::vector<Transformation> transformations = parentTransformations;
     transformations.insert(transformations.end(), group.transformations.begin(), group.transformations.end());
 
-    for (size_t i = 0; i < group.models.size(); i++) {
-        const auto& filename = group.models[i];
+    for (const auto& modelInfo : group.models) {
         Model model;
-        if (readModelFromFile(filename, model)) {
-            model.transformations = transformations;
-
-            // Handle texture
-            if (i < group.textures.size() && !group.textures[i].empty()) {
-                model.hasTexture = true;
-                model.texture.filename = group.textures[i];
-                model.texture.loaded = false; // Will be loaded when initializing VBOs
-            }
-
-            models.push_back(model);
-            std::cout << "Successfully loaded model from " << filename << std::endl;
-        } else {
-            std::cerr << "Failed to load model from " << filename << std::endl;
-        }
-    }
-    /*
-    for (const auto& filename : group.models) {
-        Model model;
-        if (readModelFromFile(filename, model)) {
+        if (readModelFromFile(modelInfo.file, model, modelInfo)) {
             model.transformations = transformations;
             models.push_back(model);
-            std::cout << "Successfully loaded model from " << filename << std::endl;
+            std::cout << "Successfully loaded model from " << modelInfo.file << std::endl;
         } else {
-            std::cerr << "Failed to load model from " << filename << std::endl;
+            std::cerr << "Failed to load model from " << modelInfo.file << std::endl;
         }
     }
 
-    */
     for (const auto& childGroup : group.childGroups) {
         loadModelsGroup(childGroup, transformations);
     }
@@ -882,6 +913,9 @@ void run_engine(World new_world, int argc, char **argv) {
     // Lighting setup
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
+    glEnable(GL_NORMALIZE);
+    glEnable(GL_TEXTURE_2D);
+    glShadeModel(GL_SMOOTH);
 
     // Simple lighting setup
     float ambient[] = { 0.2f, 0.2f, 0.2f, 1.0f };

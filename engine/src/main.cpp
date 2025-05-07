@@ -63,6 +63,83 @@ void parseTransformation(XMLElement* transformElement, Group& group) {
     }
 }
 
+void parseModels(XMLElement* modelsElement, Group& group) {
+    for (XMLElement* modelElement = modelsElement->FirstChildElement("model");
+         modelElement;
+         modelElement = modelElement->NextSiblingElement("model")) {
+
+        ModelInfo modelInfo;
+        const char* file = modelElement->Attribute("file");
+        if (file) modelInfo.file = file;
+
+        // Parse texture
+        XMLElement* textureElement = modelElement->FirstChildElement("texture");
+        if (textureElement) {
+            const char* textureFile = textureElement->Attribute("file");
+            if (textureFile) modelInfo.texture = textureFile;
+        }
+
+        // Parse material
+        XMLElement* colorElement = modelElement->FirstChildElement("color");
+        if (colorElement) {
+            XMLElement* diffuseElement = colorElement->FirstChildElement("diffuse");
+            if (diffuseElement) {
+                int r, g, b;
+                diffuseElement->QueryIntAttribute("R", &r);
+                diffuseElement->QueryIntAttribute("G", &g);
+                diffuseElement->QueryIntAttribute("B", &b);
+                // Convert from 0-255 to 0.0-1.0
+                modelInfo.material.diffuse.r = r / 255.0f;
+                modelInfo.material.diffuse.g = g / 255.0f;
+                modelInfo.material.diffuse.b = b / 255.0f;
+            }
+
+            XMLElement* ambientElement = colorElement->FirstChildElement("ambient");
+            if (ambientElement) {
+                int r, g, b;
+                ambientElement->QueryIntAttribute("R", &r);
+                ambientElement->QueryIntAttribute("G", &g);
+                ambientElement->QueryIntAttribute("B", &b);
+                // Convert from 0-255 to 0.0-1.0
+                modelInfo.material.ambient.r = r / 255.0f;
+                modelInfo.material.ambient.g = g / 255.0f;
+                modelInfo.material.ambient.b = b / 255.0f;
+            }
+
+            XMLElement* specularElement = colorElement->FirstChildElement("specular");
+            if (diffuseElement) {
+                int r, g, b;
+                specularElement->QueryIntAttribute("R", &r);
+                specularElement->QueryIntAttribute("G", &g);
+                specularElement->QueryIntAttribute("B", &b);
+                // Convert from 0-255 to 0.0-1.0
+                modelInfo.material.specular.r = r / 255.0f;
+                modelInfo.material.specular.g = g / 255.0f;
+                modelInfo.material.specular.b = b / 255.0f;
+            }
+
+            XMLElement* emissiveElement = colorElement->FirstChildElement("emissive");
+            if (diffuseElement){
+                int r, g, b;
+                emissiveElement->QueryIntAttribute("R", &r);
+                emissiveElement->QueryIntAttribute("G", &g);
+                emissiveElement->QueryIntAttribute("B", &b);
+                // Convert from 0-255 to 0.0-1.0
+                modelInfo.material.emissive.r = r / 255.0f;
+                modelInfo.material.emissive.g = g / 255.0f;
+                modelInfo.material.emissive.b = b / 255.0f;
+            }
+
+            XMLElement* shininessElement = colorElement->FirstChildElement("shininess");
+            if (shininessElement) {
+                shininessElement->QueryFloatAttribute("value", &modelInfo.material.shininess);
+            }
+        }
+
+        group.models.push_back(modelInfo);
+    }
+}
+
 void parseGroup(XMLElement* groupElement, Group& group){
     XMLElement* transformElement = groupElement->FirstChildElement("transform");
     if (transformElement) {
@@ -71,30 +148,7 @@ void parseGroup(XMLElement* groupElement, Group& group){
 
     XMLElement* modelsElement = groupElement->FirstChildElement("models");
     if (modelsElement) {
-        for (XMLElement* modelElement = modelsElement->FirstChildElement("model"); modelElement; modelElement = modelElement->NextSiblingElement("model")) {
-            const char* file = modelElement->Attribute("file");
-            if (file) {
-                //debug
-                std::cout << "Encontrado modelo: " << file << std::endl;
-                group.models.push_back(file);
-
-                // Parse texture for this model
-                XMLElement* textureElement = modelElement->FirstChildElement("texture");
-                if (textureElement) {
-                    const char* textureFile = textureElement->Attribute("file");
-                    if (textureFile) {
-                        std::cout << "Encontrada textura para modelo " << file << ": " << textureFile << std::endl;
-                        group.textures.push_back(textureFile);
-                    } else {
-                        std::cout << "Tag de textura sem atributo file para modelo " << file << std::endl;
-                        group.textures.push_back("");
-                    }
-                } else {
-                    std::cout << "Nenhuma textura encontrada para modelo " << file << std::endl;
-                    group.textures.push_back(""); // Empty string for models without texture
-                }
-            }
-        }
+        parseModels(modelsElement, group);
     }
 
     for (XMLElement* childGroupElement = groupElement->FirstChildElement("group"); childGroupElement; childGroupElement = childGroupElement->NextSiblingElement("group")) {
@@ -108,7 +162,9 @@ void printGroup(const Group& group, int depth = 0) {
     string indent(depth * 2, ' ');
 
     for (const auto& model : group.models) {
-        cout << indent << "Model: " << model << endl;
+        cout << indent << "Model: " << model.file << endl;
+        cout << indent << "Texture: " << model.texture << endl;
+
     }
 
     for (const auto& transformation : group.transformations) {
@@ -206,6 +262,33 @@ World *parse_scene(string filepath) {
             projectionElement->QueryFloatAttribute("far", &world->camera.projection.far);
         }
     }
+
+    XMLElement* lightsElement = rootElement->FirstChildElement("lights");
+    if (lightsElement) {
+        for (XMLElement* lightElement = lightsElement->FirstChildElement("light");
+             lightElement;
+             lightElement = lightElement->NextSiblingElement("light")) {
+
+            Light light;
+            const char* type = lightElement->Attribute("type");
+            if (strcmp(type, "point") == 0) light.type = Light::POINT;
+            else if (strcmp(type, "directional") == 0) light.type = Light::DIRECTIONAL;
+            else if (strcmp(type, "spotlight") == 0) light.type = Light::SPOTLIGHT;
+
+            lightElement->QueryFloatAttribute("posX", &light.position.x);
+            lightElement->QueryFloatAttribute("posY", &light.position.y);
+            lightElement->QueryFloatAttribute("posZ", &light.position.z);
+
+            lightElement->QueryFloatAttribute("dirX", &light.direction.x);
+            lightElement->QueryFloatAttribute("dirY", &light.direction.y);
+            lightElement->QueryFloatAttribute("dirZ", &light.direction.z);
+
+            lightElement->QueryFloatAttribute("cutoff", &light.cutoff);
+
+            world->lights.push_back(light);
+        }
+    }
+
 
     for(XMLElement* groupElement = rootElement->FirstChildElement("group"); groupElement; groupElement = groupElement->NextSiblingElement("group")){
         Group group;

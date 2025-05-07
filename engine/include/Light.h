@@ -1,9 +1,9 @@
-/*
- #ifndef LIGHT_H
+#ifndef LIGHT_H
 #define LIGHT_H
 
 #include <vertex.h>
 #include <string>
+#include <GL/glew.h>
 
 //o Light.h foi adicionado para esta fase
 struct Color {
@@ -12,10 +12,7 @@ struct Color {
     Color() : r(0.0f), g(0.0f), b(0.0f) {}
     Color(float r, float g, float b) : r(r), g(g), b(b) {}
 
-    // Convert from 0-255 range to 0.0-1.0 range
-    static Color fromRGB(int R, int G, int B) {
-        return Color(R / 255.0f, G / 255.0f, B / 255.0f);
-    }
+
 };
 
 struct Material {
@@ -26,8 +23,8 @@ struct Material {
     float shininess; // Default: 0
 
     Material() :
-        diffuse(Color::fromRGB(200, 200, 200)),
-        ambient(Color::fromRGB(50, 50, 50)),
+        diffuse(200 / 255.0f, 200 / 255.0f, 200 / 255.0f),
+        ambient(50 / 255.0f, 50 / 255.0f, 50 / 255.0f),
         specular(0.0f, 0.0f, 0.0f),
         emissive(0.0f, 0.0f, 0.0f),
         shininess(0.0f) {}
@@ -43,10 +40,10 @@ struct Texture {
 };
 
 struct Light {
-    enum class Type {
-        Point,
-        Directional,
-        Spotlight
+    enum Type {
+        POINT,
+        DIRECTIONAL,
+        SPOTLIGHT
     };
 
     Type type;
@@ -60,7 +57,7 @@ struct Light {
     Color specular;
 
     Light() :
-        type(Type::Point),
+        type(Type::POINT),
         position(0.0f, 0.0f, 0.0f),
         direction(0.0f, 0.0f, 1.0f),
         cutoff(45.0f),
@@ -70,4 +67,3 @@ struct Light {
 };
 
 #endif // LIGHT_H
-*/

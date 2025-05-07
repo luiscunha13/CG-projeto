@@ -47,10 +47,15 @@ struct Transformation{
 
 };
 
+struct ModelInfo {
+    std::string file;
+    std::string texture;
+    Material material;
+};
+
 struct Group {
     std::vector<Transformation> transformations;
-    std::vector<std::string> models;
-    std::vector<std::string> textures;
+    std::vector<ModelInfo> models;
     std::vector<Group> childGroups;
 };
 
@@ -59,8 +64,7 @@ struct World {
     Window window;
     Camera camera;
     std::vector<Group> groups;
-    //adicionado
-    //std::vector<Light> lights;
+    std::vector<Light> lights;
 };
 
 #endif

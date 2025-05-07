@@ -3,15 +3,9 @@
 
 #include <vector>
 #include <vertex.h>
-//#include <Light.h>
+#include <Light.h>
 #include <GL/gl.h>
 #include <string>
-
-struct Texture {
-    std::string filename;
-    GLuint textureID;
-    bool loaded;
-};
 
 struct Model {
     int n_vertices;
@@ -24,6 +18,8 @@ struct Model {
     std::vector<Vertex2f> texCoords;
     Texture texture;
     bool hasTexture;
+    Material material;
+    bool hasMaterial;
 
     GLuint vertexBuffer;
     GLuint indexBuffer;
