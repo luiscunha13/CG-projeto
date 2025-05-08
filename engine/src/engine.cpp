@@ -319,6 +319,16 @@ void setupLighting(const World& world) {
         GLenum lightID = GL_LIGHT0 + i;
         const Light& light = world.lights[i];
 
+
+        float diffuse[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        float specular[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        float ambient[4] = {0.1f, 0.1f, 0.1f, 1.0f};
+
+        glLightfv(lightID, GL_DIFFUSE, diffuse);
+        glLightfv(lightID, GL_SPECULAR, specular);
+        glLightfv(lightID, GL_AMBIENT, ambient);
+
+
         switch (light.type) {
             case Light::DIRECTIONAL: {
                 float position[4] = {light.direction.x, light.direction.y, light.direction.z, 0.0f};
@@ -329,7 +339,6 @@ void setupLighting(const World& world) {
             case Light::POINT: {
                 float position[4] = {light.position.x, light.position.y, light.position.z, 1.0f};
                 glLightfv(lightID, GL_POSITION, position);
-
 
                 break;
             }
@@ -342,8 +351,7 @@ void setupLighting(const World& world) {
                 glLightfv(lightID, GL_SPOT_DIRECTION, direction);
                 glLightf(lightID, GL_SPOT_CUTOFF, light.cutoff);
                 glLightf(lightID, GL_SPOT_EXPONENT, 30.0f);
-
-
+                
                 break;
             }
         }
@@ -421,6 +429,7 @@ GLuint loadTexture(const std::string& s) {
     // Upload texture data
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
 
+
     // Check for OpenGL errors
     GLenum glError = glGetError();
     if (glError != GL_NO_ERROR) {
@@ -437,10 +446,10 @@ GLuint loadTexture(const std::string& s) {
 
 void renderModel(const Model& model) {
     // Set material properties
-    float diffuse[] = {model.material.diffuse.x, model.material.diffuse.y, model.material.diffuse.z, 1.0f};
-    float ambient[] = {model.material.ambient.x, model.material.ambient.y, model.material.ambient.z, 1.0f};
-    float specular[] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
-    float emissive[] = {model.material.emissive.x, model.material.emissive.y, model.material.emissive.z, 1.0f};
+    float diffuse[4] = {model.material.diffuse.x, model.material.diffuse.y, model.material.diffuse.z, 1.0f};
+    float ambient[4] = {model.material.ambient.x, model.material.ambient.y, model.material.ambient.z, 1.0f};
+    float specular[4] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
+    float emissive[4] = {model.material.emissive.x, model.material.emissive.y, model.material.emissive.z, 1.0f};
 
     glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse);
     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient);
@@ -449,9 +458,12 @@ void renderModel(const Model& model) {
     glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, model.material.shininess);
 
     // Enable texture if available
-    if (model.hasTexture) {
+    if (model.hasTexture && model.textureID > 0) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, model.textureID);
+
+        // Modo de mistura da textura com material
+        //glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     } else {
         glDisable(GL_TEXTURE_2D);
     }
@@ -468,7 +480,7 @@ void renderModel(const Model& model) {
     glNormalPointer(GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, nx));
 
     // Set up texture coordinate arrays if texture exists
-    if (model.hasTexture) {
+    if (model.hasTexture && model.textureID > 0) {
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, s));
     }
@@ -506,12 +518,8 @@ void renderScene() {
 
     setupLighting(world);
 
-    // Enable lighting and depth test
-    glEnable(GL_LIGHTING);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_NORMALIZE);
-
     //desenhar eixos
+    glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
     // X Red
     glColor3f(1.0f, 0.0f, 0.0f);
@@ -525,8 +533,14 @@ void renderScene() {
     glColor3f(0.0f, 0.0f, 1.0f);
     glVertex3f(0.0f, 0.0f, -100.0f);
     glVertex3f(0.0f, 0.0f, 100.0f);
-    glColor3f(1.0f, 1.0f, 1.0f);
     glEnd();
+
+    glEnable(GL_LIGHTING);
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_NORMALIZE);
     /*
     for (const auto& model : models) {
         for (const auto& transformation : model.transformations) {
