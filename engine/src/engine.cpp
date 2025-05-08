@@ -22,6 +22,10 @@ float speed = 1.0f; // Movement speed
 
 float fov = 45.0f;
 
+int targetModelIndex = -1;  // Index of the model to follow (-1 for none)
+float followDistance = 5.0f; // Distance from target
+float followHeight = 2.0f; // Height above target
+
 bool mouseLeftDown = false;
 int lastMouseX = -1, lastMouseY = -1;
 
@@ -505,6 +509,124 @@ void renderModel(const Model& model) {
     }
 }
 
+void updateCamera() {
+    if (targetModelIndex >= 0 && targetModelIndex < models.size()) {
+        // Third-person camera mode
+        const Model& target = models[targetModelIndex];
+
+        // Calculate the target's current position after transformations
+        glPushMatrix();
+        glLoadIdentity();
+
+        // Apply all transformations to get the target's world position
+        for (const auto& transformation : target.transformations) {
+            switch (transformation.type) {
+                case Transformation::Type::Translate:
+                    if (transformation.animated) {
+                        // Time-based animation
+                        float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+                        float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
+                        float deriv[3];
+                        Vertex3f point = getPointOnCurve(
+                                transformation.animation.points,
+                                normalizedTime,
+                                transformation.animation.align ? deriv : nullptr,
+                                transformation.animation.algorithm);
+                        glTranslatef(point.x, point.y, point.z);
+
+                        if (transformation.animation.align) {
+                            normalize(deriv);
+                            float up[3] = {0, 1, 0};
+                            float right[3];
+                            cross(deriv, up, right);
+                            normalize(right);
+                            cross(right, deriv, up);
+                            normalize(up);
+                            float m[16];
+                            buildRotMatrix(deriv, up, right, m);
+                            glMultMatrixf(m);
+                        }
+                    } else {
+                        // Static translation
+                        glTranslatef(transformation.coords.x,
+                                     transformation.coords.y,
+                                     transformation.coords.z);
+                    }
+                    break;
+
+                case Transformation::Type::Rotate:
+                    if (transformation.animated) {
+                        // Time-based rotation
+                        float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+                        float angle = fmod(360.0f * elapsedTime / transformation.animation.time, 360.0f);
+                        glRotatef(angle,
+                                  transformation.coords.x,
+                                  transformation.coords.y,
+                                  transformation.coords.z);
+                    } else {
+                        // Static rotation
+                        glRotatef(transformation.angle,
+                                  transformation.coords.x,
+                                  transformation.coords.y,
+                                  transformation.coords.z);
+                    }
+                    break;
+
+                case Transformation::Type::Scale:
+                    glScalef(transformation.coords.x,
+                             transformation.coords.y,
+                             transformation.coords.z);
+                    break;
+            }
+        }
+
+        // Get the transformed position (origin point)
+        float modelView[16];
+        glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+        glPopMatrix();
+
+        // Target position is the translation components of the matrix
+        Vertex3f targetPos = {modelView[12], modelView[13], modelView[14]};
+
+        // Calculate camera position based on angles and distance
+        camX = targetPos.x - followDistance * cos(hAngle) * cos(vAngle);
+        camY = targetPos.y + followDistance * sin(vAngle) + followHeight;
+        camZ = targetPos.z - followDistance * sin(hAngle) * cos(vAngle);
+
+        // Look at the target (with slight height adjustment)
+        lookAtX = targetPos.x;
+        lookAtY = targetPos.y + followHeight * 0.5f;
+        lookAtZ = targetPos.z;
+    } else {
+        // Original first-person camera behavior
+        lookAtX = camX + cos(hAngle) * cos(vAngle);
+        lookAtY = camY + sin(vAngle);
+        lookAtZ = camZ + sin(hAngle) * cos(vAngle);
+    }
+
+    // Update up vector based on vertical angle
+    upX = -cos(hAngle) * sin(vAngle);
+    upY = cos(vAngle);
+    upZ = -sin(hAngle) * sin(vAngle);
+}
+
+void setThirdPersonCamera(int modelIndex, float distance = 5.0f, float height = 2.0f) {
+    targetModelIndex = modelIndex;
+    followDistance = distance;
+    followHeight = height;
+
+    // Reset angles to default behind-the-target view
+    hAngle = M_PI; // Face the front of the target
+    vAngle = -0.3f; // Slightly look down
+
+    updateCamera();
+}
+
+void setFirstPersonCamera() {
+    targetModelIndex = -1;
+    updateCamera();
+}
+
 void renderScene() {
 
     // clear buffers
@@ -630,6 +752,7 @@ void renderScene() {
         glPopMatrix();
     }
 
+    updateCamera();
     glutSwapBuffers();
     glutPostRedisplay();
 }
@@ -667,35 +790,37 @@ void initializeCamera() {
               << ", Vertical: " << vAngle << std::endl;
 }
 
-void updateCamera() {
-    lookAtX = camX + cos(hAngle) * cos(vAngle);
-    lookAtY = camY + sin(vAngle);
-    lookAtZ = camZ + sin(hAngle) * cos(vAngle);
-}
-
-void processKeys(unsigned char key, int x, int y){
+void processKeys(unsigned char key, int x, int y) {
     switch (key) {
         case 'w': // Move forward
-            camX += speed * cos(hAngle);
-            camZ += speed * sin(hAngle);
+            if (targetModelIndex == -1) {
+                camX += speed * cos(hAngle);
+                camZ += speed * sin(hAngle);
+            }
             break;
         case 's': // Move backward
-            camX -= speed * cos(hAngle);
-            camZ -= speed * sin(hAngle);
+            if (targetModelIndex == -1) {
+                camX -= speed * cos(hAngle);
+                camZ -= speed * sin(hAngle);
+            }
             break;
         case 'a': // Move left
-            camX += speed * sin(hAngle);
-            camZ -= speed * cos(hAngle);
+            if (targetModelIndex == -1) {
+                camX += speed * sin(hAngle);
+                camZ -= speed * cos(hAngle);
+            }
             break;
         case 'd': // Move right
-            camX -= speed * sin(hAngle);
-            camZ += speed * cos(hAngle);
+            if (targetModelIndex == -1) {
+                camX -= speed * sin(hAngle);
+                camZ += speed * cos(hAngle);
+            }
             break;
         case 'q': // Move up
-            camY += speed;
+            if (targetModelIndex == -1) camY += speed;
             break;
         case 'e': // Move down
-            camY -= speed;
+            if (targetModelIndex == -1) camY -= speed;
             break;
         case '+': // Increase movement speed
             speed *= 1.1f;
@@ -704,6 +829,37 @@ void processKeys(unsigned char key, int x, int y){
         case '-': // Decrease movement speed
             speed *= 0.9f;
             std::cout << "Speed: " << speed << std::endl;
+            break;
+        case '1': // Switch to first-person camera
+            setFirstPersonCamera();
+            break;
+        case '3': // Switch to third-person camera (follow first model)
+            if (!models.empty()) {
+                setThirdPersonCamera(0);
+            }
+            break;
+        case 'n': // Next model
+            if (!models.empty()) {
+                if (targetModelIndex == -1) {
+                    // If not following any model, start with first one
+                    setThirdPersonCamera(0);
+                } else {
+                    // Cycle to next model
+                    setThirdPersonCamera((targetModelIndex + 1) % models.size());
+                }
+            }
+            break;
+
+        case 'p': // Previous model
+            if (!models.empty()) {
+                if (targetModelIndex == -1) {
+                    // If not following any model, start with last one
+                    setThirdPersonCamera(models.size() - 1);
+                } else {
+                    // Cycle to previous model
+                    setThirdPersonCamera((targetModelIndex - 1 + models.size()) % models.size());
+                }
+            }
             break;
     }
     updateCamera();
