@@ -326,7 +326,7 @@ void setupLighting(const World& world) {
 
         float diffuse[4] = {1.0f, 1.0f, 1.0f, 1.0f};
         float specular[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-        float ambient[4] = {0.1f, 0.1f, 0.1f, 1.0f};
+        float ambient[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
         glLightfv(lightID, GL_DIFFUSE, diffuse);
         glLightfv(lightID, GL_SPECULAR, specular);
@@ -428,10 +428,9 @@ GLuint loadTexture(const std::string& s) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-    // Upload texture data
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
+    glTexParameteri(GL_TEXTURE_2D,	GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	// send texture data to OpenGL
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
 
 
     // Check for OpenGL errors
@@ -465,6 +464,7 @@ void renderModel(const Model& model) {
     if (model.hasTexture && model.textureID > 0) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, model.textureID);
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
         // Modo de mistura da textura com material
         //glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);

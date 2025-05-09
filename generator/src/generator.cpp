@@ -15,7 +15,7 @@ void add3Items(const T& i1, const T& i2, const T& i3, vector<T> &items) {
     items.push_back(i3);
 }
 
-Generator generatePlane(float size, int divisions) {
+    Generator generatePlane(float size, int divisions) {
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
 
@@ -29,11 +29,11 @@ Generator generatePlane(float size, int divisions) {
             vertex.x = -middle + x * side;
             vertex.y = 0;
             vertex.z = -middle + z * side;
-            vertex.nx = 0;  // Normal points up (Y-axis)
+            vertex.nx = 0;  
             vertex.ny = 1;
             vertex.nz = 0;
-            vertex.s = x * texStep;  // Texture coordinates
-            vertex.t = z * texStep;
+            vertex.s = z * texStep;
+            vertex.t = x * texStep;
             vertices.push_back(vertex);
             cout << -middle + x * side << " 0 " << -middle + z * side << endl;
         }
@@ -70,8 +70,16 @@ Generator generateBox(float length, int divisions) {
             for (int j = 0; j <= divisions; ++j) {
                 float v = -halfLength + i * step;
                 float u = -halfLength + j * step;
-                float texU = j * texStep;
-                float texV = i * texStep;
+                float texU, texV;
+
+                if (face == 2 || face == 3) {
+                    // para ficarem na horizontal
+                    texU = j * texStep;
+                    texV = i * texStep;
+                } else {
+                    texU = i * texStep;
+                    texV = j * texStep;
+                }
 
                 Vertex3f vertex;
                 switch (face) {
@@ -108,7 +116,7 @@ Generator generateBox(float length, int divisions) {
                 const uint32_t top_right = top_left + 1;
                 const uint32_t bottom_left = offset + (i + 1) * (divisions + 1) + j;
                 const uint32_t bottom_right = bottom_left + 1;
-                
+
                 if (face == 1 || face == 2 || face == 4) {
                     add3Items(top_left, bottom_right, bottom_left, indexes);
                     add3Items(top_left, top_right, bottom_right, indexes);
@@ -125,56 +133,53 @@ Generator generateBox(float length, int divisions) {
 
 
     Generator generateSphere(float radius, int stacks, int slices) {
-        vector<Vertex3f> vertices;
-        vector<unsigned int> indexes;
+    vector<Vertex3f> vertices;
+    vector<unsigned int> indexes;
 
-        // Generate vertices
-        for (int i = 0; i <= stacks; ++i) {
-            float stackAngle = i * (M_PI / stacks) - M_PI / 2;  // -pi/2 to pi/2
-            float xy = radius * cos(stackAngle);  // horizontal distance to axis
-            float z = radius * sin(stackAngle);   // height
+    for (int i = 0; i <= stacks; ++i) {
+        float stackAngle = i * (M_PI / stacks) - M_PI / 2;
+        float xy = radius * cos(stackAngle);
+        float z = radius * sin(stackAngle);
 
-            // Correct texture V coordinate (0 to 1 from bottom to top)
-            float texV = 1.0f - (float)i / stacks;
+        float texV = (float)i / stacks;
 
-            for (int j = 0; j <= slices; ++j) {
-                float sliceAngle = j * (2 * M_PI / slices);  // 0 to 2pi
-                float x = xy * sin(sliceAngle);  // Use sin for x
-                float y = xy * cos(sliceAngle);  // Use cos for y
+        for (int j = 0; j <= slices; ++j) {
+            float sliceAngle = j * (2 * M_PI / slices);
+            float x = xy * sin(sliceAngle);
+            float y = xy * cos(sliceAngle);
 
-                // Correct texture U coordinate (0 to 1 around the sphere)
-                float texU = (float)j / slices;
+            float texU = 1.0f - (float)j / slices;
 
-                // Proper normal calculation (unit vector from center)
-                float nx = x / radius;
-                float ny = y / radius;
-                float nz = z / radius;
 
-                Vertex3f vertex = {x, y, z, nx, ny, nz, texU, texV};
-                vertices.push_back(vertex);
-            }
+            float nx = x / radius;
+            float ny = y / radius;
+            float nz = z / radius;
+
+            Vertex3f vertex = {x, y, z, nx, ny, nz, texU, texV};
+            vertices.push_back(vertex);
         }
-
-        // Generate indices
-        for (int i = 0; i < stacks; ++i) {
-            for (int j = 0; j < slices; ++j) {
-                const uint32_t first = i * (slices + 1) + j;
-                const uint32_t second = first + slices + 1;
-
-                // First triangle
-                indexes.push_back(first);
-                indexes.push_back(second);
-                indexes.push_back(second + 1);
-
-                // Second triangle
-                indexes.push_back(first);
-                indexes.push_back(second + 1);
-                indexes.push_back(first + 1);
-            }
-        }
-
-        return {vertices, indexes};
     }
+
+
+    for (int i = 0; i < stacks; ++i) {
+        for (int j = 0; j < slices; ++j) {
+            const uint32_t first = i * (slices + 1) + j;
+            const uint32_t second = first + slices + 1;
+
+            // First triangle
+            indexes.push_back(first);
+            indexes.push_back(second);
+            indexes.push_back(second + 1);
+
+            // Second triangle
+            indexes.push_back(first);
+            indexes.push_back(second + 1);
+            indexes.push_back(first + 1);
+        }
+    }
+
+    return {vertices, indexes};
+}
 
 Generator generateCone(float radius, float height, unsigned int slices, unsigned int stacks) {
     vector<Vertex3f> vertices;
@@ -183,65 +188,76 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
     const float stack_size = height / stacks;
     const double slice_size = 2 * M_PI / slices;
 
-    cout << "Vertices" << endl;
+
     Vertex3f base_center = {0, 0, 0, 0, -1, 0, 0.5f, 0.5f};
-    cout << 0 << 0  << 0 << endl;
     vertices.push_back(base_center);
+
 
     for (int slice = 0; slice <= slices; ++slice) {
         float angle = slice * slice_size;
         float texU = (float)slice / slices;
 
         for (int stack = 0; stack <= stacks; ++stack) {
-            const float current_radius = radius - stack * radius / stacks;
+            const float current_radius = radius * (1.0f - (float)stack / stacks);
             float current_x = current_radius * cos(angle);
-            float current_z = current_radius * sin(angle);
-            float current_y = stack * stack_size;
+            float current_y = stack * stack_size;  // Altura ao longo do eixo Y
+            float current_z = current_radius * sin(angle);  // Profundidade ao longo do eixo Z
+
             float texV = (float)stack / stacks;
 
-            float normal_x = cos(angle);
-            float normal_y = radius / height;
-            float normal_z = sin(angle);
-            // Normalizar
-            float length = sqrt(normal_x*normal_x + normal_y*normal_y + normal_z*normal_z);
-            normal_x /= length;
-            normal_y /= length;
-            normal_z /= length;
 
-            cout << current_x << current_y  << current_z << endl;
+            float normal_x, normal_y, normal_z;
+
+            if (stack == 0) {
+
+                normal_x = 0;
+                normal_y = -1;
+                normal_z = 0;
+            } else {
+
+                normal_x = cos(angle);
+                normal_z = sin(angle);
+
+                normal_y = radius / height;
+
+                float length = sqrt(normal_x*normal_x + normal_y*normal_y + normal_z*normal_z);
+                normal_x /= length;
+                normal_y /= length;
+                normal_z /= length;
+            }
+
             Vertex3f vertex = {
-                    current_x, current_y, current_z,
-                    normal_x, normal_y, normal_z,
-                    texU, texV
+                current_x, current_y, current_z,
+                normal_x, normal_y, normal_z,
+                texU, texV
             };
             vertices.push_back(vertex);
         }
     }
 
-    cout << "Indices" << endl;
     for (int slice = 0; slice < slices; ++slice) {
         for (int stack = 0; stack < stacks; ++stack) {
-            uint32_t bottom_left_index = 1 + stack + (slice * (stacks + 1));
-            uint32_t bottom_right_index = bottom_left_index + stacks + 1;
+            uint32_t current_row = slice * (stacks + 1) + 1;
+            uint32_t next_row = ((slice + 1) % slices) * (stacks + 1) + 1;
 
-            uint32_t top_left_index = bottom_left_index + 1;
-            uint32_t top_right_index = bottom_right_index + 1;
+            uint32_t bottom_left = current_row + stack;
+            uint32_t bottom_right = next_row + stack;
+            uint32_t top_left = bottom_left + 1;
+            uint32_t top_right = bottom_right + 1;
 
-            cout << top_left_index << " " << bottom_left_index<< " " << bottom_right_index << endl;
-            add3Items(top_left_index, bottom_left_index, bottom_right_index, indexes);
+            add3Items((uint32_t)bottom_left, (uint32_t)top_left, (uint32_t)bottom_right, indexes);
 
-            if (stack != stacks - 1){
-                cout << top_left_index << " " << bottom_right_index<< " " << top_right_index << endl;
-                add3Items(top_left_index, bottom_right_index, top_right_index, indexes);
+            if (stack < stacks - 1) {
+                add3Items((uint32_t)bottom_right, (uint32_t)top_left, (uint32_t)top_right, indexes);
             }
-
         }
+    }
 
-        uint32_t base_left_index = 1 + (slice * (stacks + 1));
-        uint32_t base_right_index = base_left_index + stacks + 1;
+    for (int slice = 0; slice < slices; ++slice) {
+        uint32_t current = slice * (stacks + 1) + 1;
+        uint32_t next = ((slice + 1) % slices) * (stacks + 1) + 1;
 
-        cout << base_right_index << " " << base_left_index<< " " << 0 << endl;
-        add3Items(base_right_index, base_left_index, (uint32_t)0, indexes); // base triangle
+        add3Items((uint32_t)0, (uint32_t)next, (uint32_t)current, indexes);
     }
 
     return {vertices, indexes};
