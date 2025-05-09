@@ -15,7 +15,7 @@ void add3Items(const T& i1, const T& i2, const T& i3, vector<T> &items) {
     items.push_back(i3);
 }
 
-    Generator generatePlane(float size, int divisions) {
+Generator generatePlane(float size, int divisions) {
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
 
@@ -29,7 +29,7 @@ void add3Items(const T& i1, const T& i2, const T& i3, vector<T> &items) {
             vertex.x = -middle + x * side;
             vertex.y = 0;
             vertex.z = -middle + z * side;
-            vertex.nx = 0;  
+            vertex.nx = 0;
             vertex.ny = 1;
             vertex.nz = 0;
             vertex.s = z * texStep;
@@ -131,7 +131,6 @@ Generator generateBox(float length, int divisions) {
     return {vertices, indexes};
 }
 
-
     Generator generateSphere(float radius, int stacks, int slices) {
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
@@ -188,76 +187,83 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
     const float stack_size = height / stacks;
     const double slice_size = 2 * M_PI / slices;
 
-
+    // Base center vertex (with normal pointing down)
     Vertex3f base_center = {0, 0, 0, 0, -1, 0, 0.5f, 0.5f};
     vertices.push_back(base_center);
 
+    // Create base vertices
+    for (unsigned int slice = 0; slice < slices; ++slice) {
+        float angle = slice * slice_size;
+        float texU = 0.5f + 0.5f * cos(angle);
+        float texV = 0.5f + 0.5f * sin(angle);
 
-    for (int slice = 0; slice <= slices; ++slice) {
+        Vertex3f baseVertex = {
+            radius * cos(angle), 0, radius * sin(angle),
+            0, -1, 0,  // Normal pointing down for base
+            texU, texV
+        };
+        vertices.push_back(baseVertex);
+    }
+
+    // Create side vertices
+    for (unsigned int slice = 0; slice <= slices; ++slice) {
         float angle = slice * slice_size;
         float texU = (float)slice / slices;
 
-        for (int stack = 0; stack <= stacks; ++stack) {
+        for (unsigned int stack = 0; stack <= stacks; ++stack) {
             const float current_radius = radius * (1.0f - (float)stack / stacks);
             float current_x = current_radius * cos(angle);
-            float current_y = stack * stack_size;  // Altura ao longo do eixo Y
-            float current_z = current_radius * sin(angle);  // Profundidade ao longo do eixo Z
+            float current_y = stack * stack_size;
+            float current_z = current_radius * sin(angle);
 
             float texV = (float)stack / stacks;
 
+            // Calculate proper normal for the side
+            float normal_x = cos(angle);
+            float normal_z = sin(angle);
+            float normal_y = radius / height;
 
-            float normal_x, normal_y, normal_z;
-
-            if (stack == 0) {
-
-                normal_x = 0;
-                normal_y = -1;
-                normal_z = 0;
-            } else {
-
-                normal_x = cos(angle);
-                normal_z = sin(angle);
-
-                normal_y = radius / height;
-
-                float length = sqrt(normal_x*normal_x + normal_y*normal_y + normal_z*normal_z);
-                normal_x /= length;
-                normal_y /= length;
-                normal_z /= length;
-            }
+            // Normalize
+            float length = sqrt(normal_x*normal_x + normal_y*normal_y + normal_z*normal_z);
+            normal_x /= length;
+            normal_y /= length;
+            normal_z /= length;
 
             Vertex3f vertex = {
                 current_x, current_y, current_z,
                 normal_x, normal_y, normal_z,
                 texU, texV
             };
+
             vertices.push_back(vertex);
         }
     }
 
-    for (int slice = 0; slice < slices; ++slice) {
-        for (int stack = 0; stack < stacks; ++stack) {
-            uint32_t current_row = slice * (stacks + 1) + 1;
-            uint32_t next_row = ((slice + 1) % slices) * (stacks + 1) + 1;
+    // Indexes for the base
+    for (unsigned int slice = 0; slice < slices; ++slice) {
+        uint32_t current = slice + 1;
+        uint32_t next = (slice + 1) % slices + 1;
 
-            uint32_t bottom_left = current_row + stack;
-            uint32_t bottom_right = next_row + stack;
-            uint32_t top_left = bottom_left + 1;
-            uint32_t top_right = bottom_right + 1;
-
-            add3Items((uint32_t)bottom_left, (uint32_t)top_left, (uint32_t)bottom_right, indexes);
-
-            if (stack < stacks - 1) {
-                add3Items((uint32_t)bottom_right, (uint32_t)top_left, (uint32_t)top_right, indexes);
-            }
-        }
+        // Connect center to the edge in counter-clockwise order
+        add3Items((uint32_t)0, next, current, indexes);
     }
 
-    for (int slice = 0; slice < slices; ++slice) {
-        uint32_t current = slice * (stacks + 1) + 1;
-        uint32_t next = ((slice + 1) % slices) * (stacks + 1) + 1;
+    // Calculate offset for side vertices
+    uint32_t sideOffset = slices + 1;  // 1 center + slices perimeter vertices
 
-        add3Items((uint32_t)0, (uint32_t)next, (uint32_t)current, indexes);
+    // Indexes for the sides
+    for (unsigned int slice = 0; slice < slices; ++slice) {
+        for (unsigned int stack = 0; stack < stacks; ++stack) {
+            uint32_t current = slice * (stacks + 1) + stack + sideOffset;
+            uint32_t next = ((slice + 1) % slices) * (stacks + 1) + stack + sideOffset;
+
+            uint32_t top_current = current + 1;
+            uint32_t top_next = next + 1;
+
+            // Two triangles per quad
+            add3Items(current, top_current, next, indexes);
+            add3Items(next, top_current, top_next, indexes);
+        }
     }
 
     return {vertices, indexes};
