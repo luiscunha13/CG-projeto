@@ -549,6 +549,8 @@ bool SaveModel(const Generator &result, const std::string &filename)
             return false;
         }
 
+        file << "NT" << std::endl;
+
         // Escrever cabeçalho
         file << result.vertices.size() << " " << result.indices.size() / 3 << std::endl;
 

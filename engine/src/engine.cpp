@@ -313,6 +313,11 @@ void setupLighting(const World& world) {
         glDisable(GL_LIGHT0 + i);
     }
 
+    if (world.lights.empty()) {
+        glDisable(GL_LIGHTING);
+        return;
+    }
+
     glEnable(GL_LIGHTING);
     glEnable(GL_NORMALIZE);
 
@@ -460,14 +465,11 @@ void renderModel(const Model& model) {
     glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissive);
     glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, model.material.shininess);
 
-    // Enable texture if available
+    // Enable texture only if model has texture coordinates and a valid texture
     if (model.hasTexture && model.textureID > 0) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, model.textureID);
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-        // Modo de mistura da textura com material
-        //glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     } else {
         glDisable(GL_TEXTURE_2D);
     }
@@ -952,6 +954,11 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
         return false;
     }
 
+    // Read first line to determine format
+    std::string formatLine;
+    std::getline(file, formatLine);
+    bool hasNormalsAndTextures = (formatLine.find("NT") != std::string::npos);
+
     // Read number of vertices and triangles
     int n_triangles;
     if (!(file >> model.n_vertices >> n_triangles)) {
@@ -960,19 +967,33 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
         return false;
     }
 
-    model.n_indices = n_triangles * 3; // Convert triangles to indices
+    std::cout << model.n_vertices<< std::endl;
 
-    // Resize the vertices vector
+    model.n_indices = n_triangles * 3; // Convert triangles to indices
     model.vertices.resize(model.n_vertices);
 
+    std::cout << model.n_indices<< std::endl;
 
-    // Read vertices with normals and texture coordinates
-    for (int i = 0; i < model.n_vertices; i++) {
-        Vertex3f& v = model.vertices[i];
-        if (!(file >> v.x >> v.y >> v.z >> v.nx >> v.ny >> v.nz >> v.s >> v.t)) {
-            std::cerr << "Error reading vertex " << i << " from " << filename << std::endl;
-            file.close();
-            return false;
+    // Read vertices based on format
+    if (hasNormalsAndTextures) {
+        // Full format: x y z nx ny nz s t
+        for (int i = 0; i < model.n_vertices; i++) {
+            Vertex3f& v = model.vertices[i];
+            if (!(file >> v.x >> v.y >> v.z >> v.nx >> v.ny >> v.nz >> v.s >> v.t)) {
+                std::cerr << "Error reading vertex " << i << " from " << filename << std::endl;
+                file.close();
+                return false;
+            }
+        }
+    } else {
+        // Basic format: x y z
+        for (int i = 0; i < model.n_vertices; i++) {
+            Vertex3f& v = model.vertices[i];
+            if (!(file >> v.x >> v.y >> v.z)) {
+                std::cerr << "Error reading vertex " << i << " from " << filename << std::endl;
+                file.close();
+                return false;
+            }
         }
     }
 
@@ -985,7 +1006,6 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
             return false;
         }
     }
-
 
     // Set material and texture
     model.material = modelInfo.material;
@@ -1025,6 +1045,7 @@ void loadModels() {
     for(const auto& group : world.groups){
         loadModelsGroup(group, {});
     }
+
 }
 
 void run_engine(World new_world, int argc, char **argv) {
