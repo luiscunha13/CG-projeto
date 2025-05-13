@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <Model.h>
+#include <Frustum.h>
 #include <vector>
 #include <string>
 #include <IL/il.h>
@@ -11,6 +12,12 @@
 
 World world = {};
 std::vector<Model> models;
+
+bool cameraChanged = true;
+float lastCamX, lastCamY, lastCamZ;
+float lastLookAtX, lastLookAtY, lastLookAtZ;
+float lastUpX, lastUpY, lastUpZ;
+float lastFov;
 
 float camX, camY, camZ;
 float lookAtX, lookAtY, lookAtZ;
@@ -61,6 +68,8 @@ void changeSize(int w, int h) {
 
     // return to the model view matrix mode
     glMatrixMode(GL_MODELVIEW);
+
+    cameraChanged = true;
 }
 
 void buildRotMatrix(float *x, float *y, float *z, float *m) {
@@ -360,7 +369,7 @@ void setupLighting(const World& world) {
                 glLightfv(lightID, GL_SPOT_DIRECTION, direction);
                 glLightf(lightID, GL_SPOT_CUTOFF, light.cutoff);
                 glLightf(lightID, GL_SPOT_EXPONENT, 30.0f);
-                
+
                 break;
             }
         }
@@ -432,8 +441,8 @@ GLuint loadTexture(const std::string& s) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D,	GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	// send texture data to OpenGL
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
+    // send texture data to OpenGL
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
 
 
     // Check for OpenGL errors
@@ -606,6 +615,24 @@ void updateCamera() {
     upX = -cos(hAngle) * sin(vAngle);
     upY = cos(vAngle);
     upZ = -sin(hAngle) * sin(vAngle);
+
+    cameraChanged = (camX != lastCamX || camY != lastCamY || camZ != lastCamZ ||
+                     lookAtX != lastLookAtX || lookAtY != lastLookAtY || lookAtZ != lastLookAtZ ||
+                     upX != lastUpX || upY != lastUpY || upZ != lastUpZ ||
+                     fov != lastFov);
+
+    if (cameraChanged) {
+        lastCamX = camX;
+        lastCamY = camY;
+        lastCamZ = camZ;
+        lastLookAtX = lookAtX;
+        lastLookAtY = lookAtY;
+        lastLookAtZ = lookAtZ;
+        lastUpX = upX;
+        lastUpY = upY;
+        lastUpZ = upZ;
+        lastFov = fov;
+    }
 }
 
 void setThirdPersonCamera(int modelIndex, float distance = 5.0f, float height = 2.0f) {
@@ -625,6 +652,63 @@ void setFirstPersonCamera() {
     updateCamera();
 }
 
+void calculateBoundingVolumes(Model& model) {
+    if (model.vertices.empty()) {
+        model.hasBoundingBox = false;
+        return;
+    }
+
+    // Initialize min/max with first vertex
+    model.boundingBox.min = model.boundingBox.max = model.vertices[0];
+
+    // Calculate AABB
+    for (const auto& v : model.vertices) {
+        model.boundingBox.min.x = std::min(model.boundingBox.min.x, v.x);
+        model.boundingBox.min.y = std::min(model.boundingBox.min.y, v.y);
+        model.boundingBox.min.z = std::min(model.boundingBox.min.z, v.z);
+
+        model.boundingBox.max.x = std::max(model.boundingBox.max.x, v.x);
+        model.boundingBox.max.y = std::max(model.boundingBox.max.y, v.y);
+        model.boundingBox.max.z = std::max(model.boundingBox.max.z, v.z);
+    }
+
+    model.hasBoundingBox = true;
+}
+
+void renderBoundingBox(const Vertex3f& min, const Vertex3f& max, const float color[3] = nullptr) {
+    glDisable(GL_LIGHTING);
+
+    // Set color (default to yellow if none specified)
+    if (color) {
+        glColor3fv(color);
+    } else {
+        glColor3f(1.0f, 1.0f, 0.0f); // Yellow
+    }
+
+    glBegin(GL_LINES);
+
+    // Bottom face
+    glVertex3f(min.x, min.y, min.z); glVertex3f(max.x, min.y, min.z);
+    glVertex3f(max.x, min.y, min.z); glVertex3f(max.x, min.y, max.z);
+    glVertex3f(max.x, min.y, max.z); glVertex3f(min.x, min.y, max.z);
+    glVertex3f(min.x, min.y, max.z); glVertex3f(min.x, min.y, min.z);
+
+    // Top face
+    glVertex3f(min.x, max.y, min.z); glVertex3f(max.x, max.y, min.z);
+    glVertex3f(max.x, max.y, min.z); glVertex3f(max.x, max.y, max.z);
+    glVertex3f(max.x, max.y, max.z); glVertex3f(min.x, max.y, max.z);
+    glVertex3f(min.x, max.y, max.z); glVertex3f(min.x, max.y, min.z);
+
+    // Vertical edges
+    glVertex3f(min.x, min.y, min.z); glVertex3f(min.x, max.y, min.z);
+    glVertex3f(max.x, min.y, min.z); glVertex3f(max.x, max.y, min.z);
+    glVertex3f(max.x, min.y, max.z); glVertex3f(max.x, max.y, max.z);
+    glVertex3f(min.x, min.y, max.z); glVertex3f(min.x, max.y, max.z);
+
+    glEnd();
+    glEnable(GL_LIGHTING);
+}
+
 void renderScene() {
 
     // clear buffers
@@ -635,6 +719,11 @@ void renderScene() {
     gluLookAt(camX,camY,camZ,
               lookAtX, lookAtY, lookAtZ,
               upX, upY, upZ);
+
+    if (cameraChanged) {
+        extractFrustumPlanes();
+        cameraChanged = false;
+    }
 
     setupLighting(world);
 
@@ -674,8 +763,104 @@ void renderScene() {
     }
     */
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
+    int totalModels = models.size();
+    int renderedModels = 0;
+
 
     for (auto& model : models) {
+        if (model.hasBoundingBox) {
+            glPushMatrix();
+            glLoadIdentity();
+
+            for (const auto& transformation : model.transformations) {
+                switch (transformation.type) {
+                    case Transformation::Type::Translate:
+                        if (transformation.animated) {
+                            float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+                            float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
+                            float deriv[3];
+                            Vertex3f point = getPointOnCurve(
+                                    transformation.animation.points,
+                                    normalizedTime,
+                                    nullptr,  // Don't need derivatives here
+                                    transformation.animation.algorithm);
+                            glTranslatef(point.x, point.y, point.z);
+                        } else {
+                            glTranslatef(transformation.coords.x,
+                                         transformation.coords.y,
+                                         transformation.coords.z);
+                        }
+                        break;
+
+                    case Transformation::Type::Rotate:
+                        if (transformation.animated) {
+                            float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+                            float angle = fmod(360.0f * elapsedTime / transformation.animation.time, 360.0f);
+                            glRotatef(angle,
+                                      transformation.coords.x,
+                                      transformation.coords.y,
+                                      transformation.coords.z);
+                        } else {
+                            glRotatef(transformation.angle,
+                                      transformation.coords.x,
+                                      transformation.coords.y,
+                                      transformation.coords.z);
+                        }
+                        break;
+
+                    case Transformation::Type::Scale:
+                        glScalef(transformation.coords.x,
+                                 transformation.coords.y,
+                                 transformation.coords.z);
+                        break;
+                }
+            }
+
+            // Get the transformation matrix
+            float modelView[16];
+            glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+            glPopMatrix();
+
+            Vertex3f corners[8] = {
+                    {model.boundingBox.min.x, model.boundingBox.min.y, model.boundingBox.min.z},
+                    {model.boundingBox.max.x, model.boundingBox.min.y, model.boundingBox.min.z},
+                    {model.boundingBox.min.x, model.boundingBox.max.y, model.boundingBox.min.z},
+                    {model.boundingBox.max.x, model.boundingBox.max.y, model.boundingBox.min.z},
+                    {model.boundingBox.min.x, model.boundingBox.min.y, model.boundingBox.max.z},
+                    {model.boundingBox.max.x, model.boundingBox.min.y, model.boundingBox.max.z},
+                    {model.boundingBox.min.x, model.boundingBox.max.y, model.boundingBox.max.z},
+                    {model.boundingBox.max.x, model.boundingBox.max.y, model.boundingBox.max.z}
+            };
+
+            // Find transformed AABB
+            Vertex3f tMin = {INFINITY, INFINITY, INFINITY};
+            Vertex3f tMax = {-INFINITY, -INFINITY, -INFINITY};
+
+            for (auto& corner : corners) {
+                float x = modelView[0] * corner.x + modelView[4] * corner.y + modelView[8] * corner.z + modelView[12];
+                float y = modelView[1] * corner.x + modelView[5] * corner.y + modelView[9] * corner.z + modelView[13];
+                float z = modelView[2] * corner.x + modelView[6] * corner.y + modelView[10] * corner.z + modelView[14];
+
+                tMin.x = std::min(tMin.x, x);
+                tMin.y = std::min(tMin.y, y);
+                tMin.z = std::min(tMin.z, z);
+                tMax.x = std::max(tMax.x, x);
+                tMax.y = std::max(tMax.y, y);
+                tMax.z = std::max(tMax.z, z);
+            }
+
+            // Perform AABB frustum culling
+            if (!isAABBInFrustum(tMin, tMax)) {
+                continue; // Skip this model if it's not visible
+            }
+            renderedModels++;
+
+            float color[3];
+            color[0] = 0.0f; color[1] = 1.0f; color[2] = 0.0f; // Green for visible
+
+            renderBoundingBox(tMin, tMax, color);
+
+        }
         glPushMatrix();
 
         for (auto& transformation : model.transformations) {
@@ -749,6 +934,28 @@ void renderScene() {
 
         glPopMatrix();
     }
+
+    glDisable(GL_LIGHTING);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), 0, glutGet(GLUT_WINDOW_HEIGHT));
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    std::string stats = "Models: " + std::to_string(renderedModels) + "/" + std::to_string(totalModels);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glRasterPos2i(10, 20);
+    for (char c : stats) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
+    }
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glEnable(GL_LIGHTING);
 
     updateCamera();
     glutSwapBuffers();
@@ -935,6 +1142,8 @@ void processMouseButtons(int button, int state, int x, int y) {
             float ratio = width * 1.0f / height;
             gluPerspective(fov, ratio, 0.1f, 1000.0f);
             glMatrixMode(GL_MODELVIEW);
+
+            cameraChanged = true;
         }
     }
     updateCamera();
@@ -1007,6 +1216,8 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
     } else {
         model.hasTexture = false;
     }
+
+    calculateBoundingVolumes(model);
 
     model.vboInitialized = false;
     file.close();

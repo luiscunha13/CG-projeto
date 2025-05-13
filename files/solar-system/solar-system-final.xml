@@ -244,10 +244,10 @@
         <group>
             <transform>
                 <translate time="40" align="true">
-                    <point x="-10" y="0.5" z="10" />
-                    <point x="-10" y="0" z="-10" />
-                    <point x="10" y="-0.5" z="-10" />
-                    <point x="10" y="1" z="10" />
+                    <point x="-11" y="0.5" z="11" />
+                    <point x="-11" y="0" z="-11" />
+                    <point x="11" y="-0.5" z="-11" />
+                    <point x="11" y="1" z="11" />
                 </translate>
                 <rotate x="0" y="1" z="0" time="30" />
                 <scale x="0.5" y="0.5" z="0.5" />
@@ -264,7 +264,9 @@
                     <scale x="2" y="2" z="0.1" />
                 </transform>
                 <models>
-                    <model file="torus.3d" />
+                    <model file="torustex.3d">
+                        <texture file="../textures/2k_saturn_ring_alpha.png"/>
+                    </model>
                 </models>
             </group>
 
@@ -291,10 +293,10 @@
         <group>
             <transform>
                 <translate time="45" align="true">
-                    <point x="-11" y="-0.5" z="-11" />
-                    <point x="11" y="0" z="-11" />
-                    <point x="11" y="0.5" z="11" />
-                    <point x="-11" y="0" z="11" />
+                    <point x="-13" y="-0.5" z="-13" />
+                    <point x="13" y="0" z="-13" />
+                    <point x="13" y="0.5" z="13" />
+                    <point x="-13" y="0" z="13" />
                 </translate>
                 <rotate x="0" y="1" z="0" angle="98" />
                 <scale x="0.4" y="0.4" z="0.4" />
@@ -310,10 +312,10 @@
         <group>
             <transform>
                 <translate time="50" align="true">
-                    <point x="12" y="0" z="-12" />
-                    <point x="12" y="-0.5" z="12" />
-                    <point x="-12" y="0" z="12" />
-                    <point x="-12" y="0.5" z="-12" />
+                    <point x="15" y="0" z="-15" />
+                    <point x="15" y="-0.5" z="15" />
+                    <point x="-15" y="0" z="15" />
+                    <point x="-15" y="0.5" z="-15" />
                 </translate>
                 <rotate x="0" y="1" z="0" time="20" />
                 <scale x="0.4" y="0.4" z="0.4" />

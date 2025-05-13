@@ -7,6 +7,11 @@
 #include <GL/gl.h>
 #include <string>
 
+struct BoundingBox {
+    Vertex3f min;
+    Vertex3f max;
+};
+
 struct Model {
     int n_vertices;
     int n_indices;
@@ -22,6 +27,9 @@ struct Model {
     GLuint vertexBuffer;
     GLuint indexBuffer;
     bool vboInitialized;
+
+    BoundingBox boundingBox;
+    bool hasBoundingBox;
 };
 
 #endif
