@@ -131,7 +131,7 @@ Generator generateBox(float length, int divisions) {
     return {vertices, indexes};
 }
 
-    Generator generateSphere(float radius, int stacks, int slices) {
+Generator generateSphere(float radius, int stacks, int slices) {
     vector<Vertex3f> vertices;
     vector<unsigned int> indexes;
 

@@ -418,8 +418,6 @@ GLuint loadTexture(const std::string& s) {
     th = ilGetInteger(IL_IMAGE_HEIGHT);
     texData = ilGetData();
 
-    std::cout << "Successfully loaded image: " << s << " (" << tw << "x" << th << ")" << std::endl;
-
     // Generate OpenGL texture
     glGenTextures(1, &texID);
     if (texID == 0) {
@@ -442,8 +440,6 @@ GLuint loadTexture(const std::string& s) {
     GLenum glError = glGetError();
     if (glError != GL_NO_ERROR) {
         std::cerr << "OpenGL Error in texture creation: " << glError << std::endl;
-    } else {
-        std::cout << "Successfully created GL texture with ID: " << texID << std::endl;
     }
 
     // Clean up IL image
@@ -967,12 +963,8 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
         return false;
     }
 
-    std::cout << model.n_vertices<< std::endl;
-
     model.n_indices = n_triangles * 3; // Convert triangles to indices
     model.vertices.resize(model.n_vertices);
-
-    std::cout << model.n_indices<< std::endl;
 
     // Read vertices based on format
     if (hasNormalsAndTextures) {
