@@ -65,6 +65,8 @@ void parseTransformation(XMLElement* transformElement, Group& group) {
 
 void parseModels(XMLElement* modelsElement, Group& group) {
 
+
+
     Material defaultMaterial;
     defaultMaterial.diffuse = Vertex3f(200/255.0f, 200/255.0f, 200/255.0f);
     defaultMaterial.ambient = Vertex3f(50/255.0f, 50/255.0f, 50/255.0f);
@@ -79,6 +81,8 @@ void parseModels(XMLElement* modelsElement, Group& group) {
         ModelInfo modelInfo;
         const char* file = modelElement->Attribute("file");
         if (file) modelInfo.file = file;
+
+        modelInfo.isSkybox = modelElement->BoolAttribute("skybox", false);
 
         modelInfo.material = defaultMaterial;
 
@@ -331,7 +335,7 @@ World *parse_scene(string filepath) {
     for(Light l : world->lights)
         if(l.type == Light :: POINT)
             std::cout << "type: Point" << ", posX:" << l.position.x
-            << ", posY:" << l.position.y << ", posZ:" << l.position.z << std::endl;
+                      << ", posY:" << l.position.y << ", posZ:" << l.position.z << std::endl;
         else if(l.type == Light :: DIRECTIONAL)
             std::cout << "type: Directional" << ", dirX:" << l.direction.x
                       << ", dirY:" << l.direction.y << ", dirZ:" << l.direction.z << std::endl;

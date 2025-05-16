@@ -11,6 +11,8 @@ struct Material {
     Vertex3f emissive;
     float shininess;
 };
+
+
 struct Light {
     enum Type { POINT, DIRECTIONAL, SPOT };
     Type type;

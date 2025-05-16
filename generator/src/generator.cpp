@@ -140,21 +140,20 @@ Generator generateSphere(float radius, int stacks, int slices) {
         float xy = radius * cos(stackAngle);
         float z = radius * sin(stackAngle);
 
-        float texV = (float)i / stacks;
+        float texV = 1.0f - (float)i / stacks;
 
         for (int j = 0; j <= slices; ++j) {
             float sliceAngle = j * (2 * M_PI / slices);
             float x = xy * sin(sliceAngle);
             float y = xy * cos(sliceAngle);
 
-            float texU = 1.0f - (float)j / slices;
-
+            float texU = (float)j / slices;
 
             float nx = x / radius;
-            float ny = y / radius;
-            float nz = z / radius;
+            float ny = -y / radius;
+            float nz = -z / radius;
 
-            Vertex3f vertex = {x, y, z, nx, ny, nz, texU, texV};
+            Vertex3f vertex = {x, -z, y, nx, ny, nz, texU, texV};
             vertices.push_back(vertex);
         }
     }
@@ -194,6 +193,7 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
     // Create base vertices
     for (unsigned int slice = 0; slice < slices; ++slice) {
         float angle = slice * slice_size;
+
         float texU = 0.5f + 0.5f * cos(angle);
         float texV = 0.5f + 0.5f * sin(angle);
 
@@ -288,61 +288,60 @@ Generator generateCylinder(float radius, float height, unsigned int slices) {
         float angle = slice * slice_size;
         float cosA = cos(angle);
         float sinA = sin(angle);
+        float texU = (float)slice / slices;
 
-        cout << radius * cosA << 0 << radius * sinA << endl;
-        Vertex3f base_vertex = {
+        Vertex3f base = {
                 radius * cosA, 0, radius * sinA,
                 0, -1, 0,
                 (cosA + 1) * 0.5f, (sinA + 1) * 0.5f
         };
-        vertices.push_back(base_vertex);
-        cout << radius * cosA << height << radius * sinA << endl;
-        Vertex3f top_vertex = {
-                radius * cosA, height, radius * sinA,
-                0, 1, 0,
-                (cosA + 1) * 0.5f, (sinA + 1) * 0.5f
-        };
-        vertices.push_back(top_vertex);
-        /*
+
         Vertex3f side_base = {
                 radius * cosA, 0, radius * sinA,
                 cosA, 0, sinA,
                 texU, 0
         };
+
         Vertex3f side_top = {
                 radius * cosA, height, radius * sinA,
                 cosA, 0, sinA,
                 texU, 1
         };
+
+        Vertex3f top = {
+                radius * cosA, height, radius * sinA,
+                0, 1, 0,
+                (cosA + 1) * 0.5f, (sinA + 1) * 0.5f
+        };
+
+        vertices.push_back(base);
+        vertices.push_back(top);
         vertices.push_back(side_base);
         vertices.push_back(side_top);
-         */
+
     }
 
     cout << "Indices" << endl;
-    for (int slice = 0; slice < slices; ++slice) {
-        uint32_t bottom_left_index = 2 + (slice * 2);
-        uint32_t bottom_right_index = 2 + ((slice + 1) * 2);
+    unsigned int base_center_idx = 0;
+    unsigned int top_center_idx = 1;
+    unsigned int vertex_per_slice = 4;
 
-        uint32_t top_left_index = bottom_left_index + 1;
-        uint32_t top_right_index = bottom_right_index + 1;
+    for (unsigned int slice = 0; slice < slices; ++slice) {
+        unsigned int current = 2 + slice * vertex_per_slice;
+        unsigned int next = 2 + ((slice + 1) % slices) * vertex_per_slice;
 
+        add3Items(base_center_idx, current, next, indexes);
 
-        // First triangle (bottom left, top left, bottom right)
-        cout << bottom_left_index << " " << top_left_index<< " " << bottom_right_index << endl;
-        add3Items(bottom_left_index, top_left_index, bottom_right_index, indexes);
+        add3Items(top_center_idx, next + 1, current + 1, indexes);
 
-        // Second triangle (top left, top right, bottom right)
-        cout << top_left_index << " " << top_right_index<< " " << bottom_right_index << endl;
-        add3Items(top_left_index, top_right_index, bottom_right_index, indexes);
+        unsigned int side_base_current = current + 2;
+        unsigned int side_top_current = current + 3;
+        unsigned int side_base_next = next + 2;
+        unsigned int side_top_next = next + 3;
 
-        // Base triangle (base center, base left, base right)
-        cout << 0 << " " << bottom_left_index<< " " << bottom_right_index << endl;
-        add3Items((uint32_t)0, bottom_left_index, bottom_right_index, indexes);
+        add3Items(side_base_current, side_base_next, side_top_current, indexes);
 
-        // Top triangle (top center, top right, top left)
-        cout << 1 << " " << top_right_index<< " " << top_left_index << endl;
-        add3Items((uint32_t)1, top_right_index, top_left_index, indexes);
+        add3Items(side_top_current, side_base_next, side_top_next, indexes);
     }
 
 
@@ -376,6 +375,11 @@ Generator generateTorus(float outerRadius, float innerRadius, unsigned int slice
             float nx = cosSlice * cosStack;
             float ny = sinSlice * cosStack;
             float nz = sinStack;
+
+            float n = sqrt(nx*nx + ny*ny + nz*nz);
+            nx /= n;
+            ny /= n;
+            nz /= n;
 
             cout << x << y << z << endl;
             Vertex3f vertex = {x, y, z, nx, ny, nz, texU, texV};

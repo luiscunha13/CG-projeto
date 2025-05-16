@@ -316,41 +316,33 @@ void cleanupVBOs() {
 }
 
 void setupLighting(const World& world) {
-    const int MAX_LIGHTS = 8;
-
-    for (int i = 0; i < MAX_LIGHTS; i++) {
-        glDisable(GL_LIGHT0 + i);
-    }
-
     if (world.lights.empty()) {
         glDisable(GL_LIGHTING);
         return;
     }
 
-    glEnable(GL_LIGHTING);
-    glEnable(GL_NORMALIZE);
+    glEnable(GL_RESCALE_NORMAL);
 
     float amb[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, amb);
 
-    for (size_t i = 0; i < world.lights.size() && i < MAX_LIGHTS; i++) {
+
+    glEnable(GL_LIGHTING);
+
+    for (size_t i = 0; i < world.lights.size() && world.lights.size() < 8; i++) {
         GLenum lightID = GL_LIGHT0 + i;
         const Light& light = world.lights[i];
 
+        float w[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
-        float diffuse[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-        float specular[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-        float ambient[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-
-        glLightfv(lightID, GL_DIFFUSE, diffuse);
-        glLightfv(lightID, GL_SPECULAR, specular);
-        glLightfv(lightID, GL_AMBIENT, ambient);
+        glLightfv(lightID, GL_DIFFUSE, w);
+        glLightfv(lightID, GL_SPECULAR, w);
 
 
         switch (light.type) {
             case Light::DIRECTIONAL: {
-                float position[4] = {light.direction.x, light.direction.y, light.direction.z, 0.0f};
-                glLightfv(lightID, GL_POSITION, position);
+                float direction[4] = {light.direction.x, light.direction.y, light.direction.z, 0.0f};
+                glLightfv(lightID, GL_POSITION, direction);
                 break;
             }
 
@@ -363,12 +355,11 @@ void setupLighting(const World& world) {
 
             case Light::SPOT: {
                 float position[4] = {light.position.x, light.position.y, light.position.z, 1.0f};
-                float direction[3] = {light.direction.x, light.direction.y, light.direction.z};
+                float direction[4] = {light.direction.x, light.direction.y, light.direction.z, 0.0f};
 
                 glLightfv(lightID, GL_POSITION, position);
                 glLightfv(lightID, GL_SPOT_DIRECTION, direction);
                 glLightf(lightID, GL_SPOT_CUTOFF, light.cutoff);
-                glLightf(lightID, GL_SPOT_EXPONENT, 30.0f);
 
                 break;
             }
@@ -464,13 +455,31 @@ void renderModel(const Model& model) {
     float specular[4] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
     float emissive[4] = {model.material.emissive.x, model.material.emissive.y, model.material.emissive.z, 1.0f};
 
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissive);
-    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, model.material.shininess);
+    if (model.isSkybox) {
+        glDisable(GL_DEPTH_TEST);
+        glCullFace(GL_FRONT);
+        glDepthMask(GL_FALSE);
 
-    // Enable texture only if model has texture coordinates and a valid texture
+        glPushMatrix();
+        glLoadIdentity();
+
+        // Only keep rotation (remove translation) so skybox always surrounds camera
+        gluLookAt(0, 0, 0,
+                  lookAtX - camX, lookAtY - camY, lookAtZ - camZ,
+                  upX, upY, upZ);
+
+        float skyboxEmissive[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, skyboxEmissive);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, skyboxEmissive);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, skyboxEmissive);
+    } else {
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissive);
+        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, model.material.shininess);
+    }
+
     if (model.hasTexture && model.textureID > 0) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, model.textureID);
@@ -503,7 +512,7 @@ void renderModel(const Model& model) {
     // Cleanup
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_NORMAL_ARRAY);
-    if (model.hasTexture) {
+    if (model.hasTexture && model.textureID > 0) {
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 
@@ -511,9 +520,91 @@ void renderModel(const Model& model) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    if (model.hasTexture) {
+    if (model.hasTexture && model.textureID > 0) {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
+
+    if (model.isSkybox) {
+        glPopMatrix();  // Restore original matrix
+        glEnable(GL_DEPTH_TEST);
+        glCullFace(GL_BACK);
+        glDepthMask(GL_TRUE);
+
+        // Reset material
+        float defaultColor[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, defaultColor);
+    }
+}
+
+static void applyTransformations(const std::vector<Transformation>& transformations, bool applyAnimation = true) {
+    for (const auto& transformation : transformations) {
+        switch (transformation.type) {
+            case Transformation::Type::Translate:
+                if (transformation.animated) {
+                    float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+                    float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
+                    float deriv[3];
+                    Vertex3f point = getPointOnCurve(
+                            transformation.animation.points,
+                            normalizedTime,
+                            transformation.animation.align ? deriv : nullptr,
+                            transformation.animation.algorithm);
+                    glTranslatef(point.x, point.y, point.z);
+
+                    if (transformation.animation.align) {
+                        normalize(deriv);
+                        float up[3] = {0, 1, 0};
+                        float right[3];
+                        cross(deriv, up, right);
+                        normalize(right);
+                        cross(right, deriv, up);
+                        normalize(up);
+                        float m[16];
+                        buildRotMatrix(deriv, up, right, m);
+                        glMultMatrixf(m);
+                    }
+                } else {
+                    glTranslatef(transformation.coords.x,
+                                 transformation.coords.y,
+                                 transformation.coords.z);
+                }
+                break;
+
+            case Transformation::Type::Rotate:
+                if (transformation.animated && applyAnimation) {
+                    float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+                    float angle = fmod(360.0f * elapsedTime / transformation.animation.time, 360.0f);
+                    glRotatef(angle,
+                              transformation.coords.x,
+                              transformation.coords.y,
+                              transformation.coords.z);
+                } else {
+                    glRotatef(transformation.angle,
+                              transformation.coords.x,
+                              transformation.coords.y,
+                              transformation.coords.z);
+                }
+                break;
+
+            case Transformation::Type::Scale:
+                glScalef(transformation.coords.x,
+                         transformation.coords.y,
+                         transformation.coords.z);
+                break;
+        }
+    }
+}
+
+static Vertex3f getTransformedPosition(const std::vector<Transformation>& transformations) {
+    glPushMatrix();
+    glLoadIdentity();
+    applyTransformations(transformations);
+
+    float modelView[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+    glPopMatrix();
+
+    return Vertex3f{modelView[12], modelView[13], modelView[14]};
 }
 
 void updateCamera() {
@@ -521,79 +612,7 @@ void updateCamera() {
         // Third-person camera mode
         const Model& target = models[targetModelIndex];
 
-        // Calculate the target's current position after transformations
-        glPushMatrix();
-        glLoadIdentity();
-
-        // Apply all transformations to get the target's world position
-        for (const auto& transformation : target.transformations) {
-            switch (transformation.type) {
-                case Transformation::Type::Translate:
-                    if (transformation.animated) {
-                        // Time-based animation
-                        float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
-                        float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
-                        float deriv[3];
-                        Vertex3f point = getPointOnCurve(
-                                transformation.animation.points,
-                                normalizedTime,
-                                transformation.animation.align ? deriv : nullptr,
-                                transformation.animation.algorithm);
-                        glTranslatef(point.x, point.y, point.z);
-
-                        if (transformation.animation.align) {
-                            normalize(deriv);
-                            float up[3] = {0, 1, 0};
-                            float right[3];
-                            cross(deriv, up, right);
-                            normalize(right);
-                            cross(right, deriv, up);
-                            normalize(up);
-                            float m[16];
-                            buildRotMatrix(deriv, up, right, m);
-                            glMultMatrixf(m);
-                        }
-                    } else {
-                        // Static translation
-                        glTranslatef(transformation.coords.x,
-                                     transformation.coords.y,
-                                     transformation.coords.z);
-                    }
-                    break;
-
-                case Transformation::Type::Rotate:
-                    if (transformation.animated) {
-                        // Time-based rotation
-                        float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
-                        float angle = fmod(360.0f * elapsedTime / transformation.animation.time, 360.0f);
-                        glRotatef(angle,
-                                  transformation.coords.x,
-                                  transformation.coords.y,
-                                  transformation.coords.z);
-                    } else {
-                        // Static rotation
-                        glRotatef(transformation.angle,
-                                  transformation.coords.x,
-                                  transformation.coords.y,
-                                  transformation.coords.z);
-                    }
-                    break;
-
-                case Transformation::Type::Scale:
-                    glScalef(transformation.coords.x,
-                             transformation.coords.y,
-                             transformation.coords.z);
-                    break;
-            }
-        }
-
-        // Get the transformed position (origin point)
-        float modelView[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
-        glPopMatrix();
-
-        // Target position is the translation components of the matrix
-        Vertex3f targetPos = {modelView[12], modelView[13], modelView[14]};
+        Vertex3f targetPos = getTransformedPosition(target.transformations);
 
         // Calculate camera position based on angles and distance
         camX = targetPos.x - followDistance * cos(hAngle) * cos(vAngle);
@@ -709,24 +728,49 @@ void renderBoundingBox(const Vertex3f& min, const Vertex3f& max, const float col
     glEnable(GL_LIGHTING);
 }
 
-void renderScene() {
-
-    // clear buffers
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // set the camera
+std::pair<Vertex3f, Vertex3f> getTransformedAABB(const BoundingBox& bbox, const std::vector<Transformation>& transformations) {
+    glPushMatrix();
     glLoadIdentity();
-    gluLookAt(camX,camY,camZ,
-              lookAtX, lookAtY, lookAtZ,
-              upX, upY, upZ);
 
-    if (cameraChanged) {
-        extractFrustumPlanes();
-        cameraChanged = false;
+    // Apply transformations but SKIP animations (which cause pulsating)
+    applyTransformations(transformations, false);  // false means don't apply animation
+
+    float modelView[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+    glPopMatrix();
+
+    Vertex3f corners[8] = {
+            {bbox.min.x, bbox.min.y, bbox.min.z},
+            {bbox.max.x, bbox.min.y, bbox.min.z},
+            {bbox.min.x, bbox.max.y, bbox.min.z},
+            {bbox.max.x, bbox.max.y, bbox.min.z},
+            {bbox.min.x, bbox.min.y, bbox.max.z},
+            {bbox.max.x, bbox.min.y, bbox.max.z},
+            {bbox.min.x, bbox.max.y, bbox.max.z},
+            {bbox.max.x, bbox.max.y, bbox.max.z}
+    };
+
+    Vertex3f tMin = {INFINITY, INFINITY, INFINITY};
+    Vertex3f tMax = {-INFINITY, -INFINITY, -INFINITY};
+
+    for (auto& corner : corners) {
+        // Apply the transformation matrix
+        float x = modelView[0] * corner.x + modelView[4] * corner.y + modelView[8] * corner.z + modelView[12];
+        float y = modelView[1] * corner.x + modelView[5] * corner.y + modelView[9] * corner.z + modelView[13];
+        float z = modelView[2] * corner.x + modelView[6] * corner.y + modelView[10] * corner.z + modelView[14];
+
+        tMin.x = std::min(tMin.x, x);
+        tMin.y = std::min(tMin.y, y);
+        tMin.z = std::min(tMin.z, z);
+        tMax.x = std::max(tMax.x, x);
+        tMax.y = std::max(tMax.y, y);
+        tMax.z = std::max(tMax.z, z);
     }
 
-    setupLighting(world);
+    return {tMin, tMax};
+}
 
+void drawAxis(){
     //desenhar eixos
     glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
@@ -747,194 +791,9 @@ void renderScene() {
     glEnable(GL_LIGHTING);
 
     glColor3f(1.0f, 1.0f, 1.0f);
+}
 
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_NORMALIZE);
-    /*
-    for (const auto& model : models) {
-        for (const auto& transformation : model.transformations) {
-            if (transformation.type == Transformation::Type::Translate &&
-                transformation.animated &&
-                transformation.animation.points.size() >= 4 &&
-                transformation.animation.algorithm == "hermite") {
-                renderCurve(transformation.animation.points, transformation.animation.algorithm);
-            }
-        }
-    }
-    */
-    int currentTime = glutGet(GLUT_ELAPSED_TIME);
-    int totalModels = models.size();
-    int renderedModels = 0;
-
-
-    for (auto& model : models) {
-        if (model.hasBoundingBox) {
-            glPushMatrix();
-            glLoadIdentity();
-
-            for (const auto& transformation : model.transformations) {
-                switch (transformation.type) {
-                    case Transformation::Type::Translate:
-                        if (transformation.animated) {
-                            float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
-                            float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
-                            float deriv[3];
-                            Vertex3f point = getPointOnCurve(
-                                    transformation.animation.points,
-                                    normalizedTime,
-                                    nullptr,  // Don't need derivatives here
-                                    transformation.animation.algorithm);
-                            glTranslatef(point.x, point.y, point.z);
-                        } else {
-                            glTranslatef(transformation.coords.x,
-                                         transformation.coords.y,
-                                         transformation.coords.z);
-                        }
-                        break;
-
-                    case Transformation::Type::Rotate:
-                        if (transformation.animated) {
-                            float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
-                            float angle = fmod(360.0f * elapsedTime / transformation.animation.time, 360.0f);
-                            glRotatef(angle,
-                                      transformation.coords.x,
-                                      transformation.coords.y,
-                                      transformation.coords.z);
-                        } else {
-                            glRotatef(transformation.angle,
-                                      transformation.coords.x,
-                                      transformation.coords.y,
-                                      transformation.coords.z);
-                        }
-                        break;
-
-                    case Transformation::Type::Scale:
-                        glScalef(transformation.coords.x,
-                                 transformation.coords.y,
-                                 transformation.coords.z);
-                        break;
-                }
-            }
-
-            // Get the transformation matrix
-            float modelView[16];
-            glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
-            glPopMatrix();
-
-            Vertex3f corners[8] = {
-                    {model.boundingBox.min.x, model.boundingBox.min.y, model.boundingBox.min.z},
-                    {model.boundingBox.max.x, model.boundingBox.min.y, model.boundingBox.min.z},
-                    {model.boundingBox.min.x, model.boundingBox.max.y, model.boundingBox.min.z},
-                    {model.boundingBox.max.x, model.boundingBox.max.y, model.boundingBox.min.z},
-                    {model.boundingBox.min.x, model.boundingBox.min.y, model.boundingBox.max.z},
-                    {model.boundingBox.max.x, model.boundingBox.min.y, model.boundingBox.max.z},
-                    {model.boundingBox.min.x, model.boundingBox.max.y, model.boundingBox.max.z},
-                    {model.boundingBox.max.x, model.boundingBox.max.y, model.boundingBox.max.z}
-            };
-
-            // Find transformed AABB
-            Vertex3f tMin = {INFINITY, INFINITY, INFINITY};
-            Vertex3f tMax = {-INFINITY, -INFINITY, -INFINITY};
-
-            for (auto& corner : corners) {
-                float x = modelView[0] * corner.x + modelView[4] * corner.y + modelView[8] * corner.z + modelView[12];
-                float y = modelView[1] * corner.x + modelView[5] * corner.y + modelView[9] * corner.z + modelView[13];
-                float z = modelView[2] * corner.x + modelView[6] * corner.y + modelView[10] * corner.z + modelView[14];
-
-                tMin.x = std::min(tMin.x, x);
-                tMin.y = std::min(tMin.y, y);
-                tMin.z = std::min(tMin.z, z);
-                tMax.x = std::max(tMax.x, x);
-                tMax.y = std::max(tMax.y, y);
-                tMax.z = std::max(tMax.z, z);
-            }
-
-            // Perform AABB frustum culling
-            if (!isAABBInFrustum(tMin, tMax)) {
-                continue; // Skip this model if it's not visible
-            }
-            renderedModels++;
-
-            float color[3];
-            color[0] = 0.0f; color[1] = 1.0f; color[2] = 0.0f; // Green for visible
-
-            renderBoundingBox(tMin, tMax, color);
-
-        }
-        glPushMatrix();
-
-        for (auto& transformation : model.transformations) {
-            switch (transformation.type) {
-                case Transformation::Type::Translate:
-                    if (transformation.animated) {
-                        // Time-based
-                        float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f; // convert to seconds
-                        float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
-
-                        float deriv[3];
-                        Vertex3f point = getPointOnCurve(
-                                transformation.animation.points,
-                                normalizedTime,
-                                transformation.animation.align ? deriv : nullptr,
-                                transformation.animation.algorithm);
-
-                        glTranslatef(point.x, point.y, point.z);
-
-                        if (transformation.animation.align) {
-                            normalize(deriv);
-
-                            float up[3] = {0, 1, 0};
-                            float right[3];
-                            cross(deriv, up, right);
-                            normalize(right);
-                            cross(right, deriv, up);
-                            normalize(up);
-
-                            float m[16];
-                            buildRotMatrix(deriv, up, right, m);
-                            glMultMatrixf(m);
-                        }
-                    } else {
-                        glTranslatef(transformation.coords.x,
-                                     transformation.coords.y,
-                                     transformation.coords.z);
-                    }
-                    break;
-
-                case Transformation::Type::Rotate:
-                    if (transformation.animated) {
-                        // Time-based
-                        float elapsedTime = currentTime / 1000.0f;
-                        float angle = fmod(360.0f * elapsedTime / transformation.animation.time, 360.0f);
-                        glRotatef(angle,
-                                  transformation.coords.x,
-                                  transformation.coords.y,
-                                  transformation.coords.z);
-                    } else {
-                        // Static
-                        glRotatef(transformation.angle,
-                                  transformation.coords.x,
-                                  transformation.coords.y,
-                                  transformation.coords.z);
-                    }
-                    break;
-
-                case Transformation::Type::Scale:
-                    glScalef(transformation.coords.x,
-                             transformation.coords.y,
-                             transformation.coords.z);
-                    break;
-            }
-        }
-
-        if (!model.vboInitialized) {
-            initModelVBOs(model);
-        }
-        renderModel(model);
-
-        glPopMatrix();
-    }
-
+void printRenderedModels(int totalModels, int renderedModels){
     glDisable(GL_LIGHTING);
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -956,6 +815,73 @@ void renderScene() {
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
     glEnable(GL_LIGHTING);
+}
+
+void renderScene() {
+
+    // clear buffers
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // set the camera
+    glLoadIdentity();
+    gluLookAt(camX,camY,camZ,
+              lookAtX, lookAtY, lookAtZ,
+              upX, upY, upZ);
+
+    if (cameraChanged) {
+        extractFrustumPlanes();
+        cameraChanged = false;
+    }
+
+    setupLighting(world);
+
+    drawAxis();
+
+
+    /*
+    for (const auto& model : models) {
+        for (const auto& transformation : model.transformations) {
+            if (transformation.type == Transformation::Type::Translate &&
+                transformation.animated &&
+                transformation.animation.points.size() >= 4 &&
+                transformation.animation.algorithm == "hermite") {
+                renderCurve(transformation.animation.points, transformation.animation.algorithm);
+            }
+        }
+    }
+    */
+    int totalModels = models.size();
+    int renderedModels = 0;
+
+    for (auto& model : models) {
+        if (model.hasBoundingBox) {
+            // Get the transformed AABB
+            Vertex3f tMin, tMax;
+            std::tie(tMin, tMax) = getTransformedAABB(model.boundingBox, model.transformations);
+
+            // Perform AABB frustum culling
+            if (!isAABBInFrustum(tMin, tMax)) {
+                continue; // Skip this model if it's not visible
+            }
+            renderedModels++;
+
+            //float color[3] = {0.0f, 1.0f, 0.0f}; // Green for visible
+            //renderBoundingBox(tMin, tMax, color);
+        }
+
+        // Render the model
+        glPushMatrix();
+        applyTransformations(model.transformations);
+
+        if (!model.vboInitialized) {
+            initModelVBOs(model);
+        }
+        renderModel(model);
+
+        glPopMatrix();
+    }
+
+    printRenderedModels(totalModels, renderedModels);
 
     updateCamera();
     glutSwapBuffers();
@@ -1123,33 +1049,27 @@ void processMouseButtons(int button, int state, int x, int y) {
 
         if (button == 3) {  // Scroll up - zoom in
             fov -= 2.0f;
-            if (fov < 10.0f) fov = 10.0f; // Min FOV
-            glMatrixMode(GL_PROJECTION);
-            glLoadIdentity();
-            int width = glutGet(GLUT_WINDOW_WIDTH);
-            int height = glutGet(GLUT_WINDOW_HEIGHT);
-            float ratio = width * 1.0f / height;
-            gluPerspective(fov, ratio, 0.1f, 1000.0f);
-            glMatrixMode(GL_MODELVIEW);
-
+            if (fov < 10.0f) fov = 10.0f;
         } else if (button == 4) {  // Scroll down - zoom out
             fov += 2.0f;
-            if (fov > 90.0f) fov = 90.0f; // Max FOV
-            glMatrixMode(GL_PROJECTION);
-            glLoadIdentity();
-            int width = glutGet(GLUT_WINDOW_WIDTH);
-            int height = glutGet(GLUT_WINDOW_HEIGHT);
-            float ratio = width * 1.0f / height;
-            gluPerspective(fov, ratio, 0.1f, 1000.0f);
-            glMatrixMode(GL_MODELVIEW);
-
-            cameraChanged = true;
+            if (fov > 90.0f) fov = 90.0f;
         }
+
+        // Update projection matrix and frustum
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        int width = glutGet(GLUT_WINDOW_WIDTH);
+        int height = glutGet(GLUT_WINDOW_HEIGHT);
+        float ratio = width * 1.0f / height;
+        gluPerspective(fov, ratio, 0.1f, 1000.0f);
+        glMatrixMode(GL_MODELVIEW);
+
+        extractFrustumPlanes();
+        cameraChanged = true;
     }
     updateCamera();
     glutPostRedisplay();
 }
-
 
 bool readModelFromFile(const std::string& filename, Model& model, const ModelInfo& modelInfo) {
     std::ifstream file(filename);
@@ -1220,6 +1140,7 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
     calculateBoundingVolumes(model);
 
     model.vboInitialized = false;
+    model.isSkybox = modelInfo.isSkybox;
     file.close();
     return true;
 }
@@ -1276,15 +1197,9 @@ void run_engine(World new_world, int argc, char **argv) {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
-    glEnable(GL_LIGHTING);
     glEnable(GL_NORMALIZE);
     glEnable(GL_TEXTURE_2D);
-    glEnable(GL_RESCALE_NORMAL);
     glShadeModel(GL_SMOOTH);
-
-    // Set default material properties
-    float global_ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
 
     loadModels();
 

@@ -14,10 +14,10 @@
     <group>
         <transform>
             <translate x="0" y="0" z="0" />
-            <scale x="500" y="500" z="500" />
+            <scale x="1000" y="1000" z="1000" />
         </transform>
         <models>
-            <model file="spheretex.3d">
+            <model file="skytex.3d" skybox="true">
                 <texture file="../textures/sky.jpg"/>
                 <color>
                     <emissive R="255" G="255" B="255"/>
@@ -38,7 +38,7 @@
         <group>
             <transform>
                 <scale x="2" y="2" z="2" />
-                <rotate x="0" y="1" z="0" time="30" />
+                <rotate x="0" y="-1" z="0" time="30" />
             </transform>
             <models>
                 <model file="spheretex.3d">
@@ -347,7 +347,6 @@
 
         <!-- Asteroid Belt (200 objects with circular orbits) -->
         <!-- Asteroid Belt (200 objects with circular orbits) -->
-        <group>
 
             <group>
                 <transform>
@@ -10850,7 +10849,6 @@
             </group>
         </group>
 
-    </group>
 
 
     <!-- Comet with Catmull-Rom trajectory -->
@@ -10870,7 +10868,9 @@
             <scale x="0.5" y="0.5" z="0.5" />
         </transform>
         <models>
-            <model file="comet.3d" />
+            <model file="comettex.3d">
+                <texture file="../textures/2k_moon.jpg"/>
+            </model>
         </models>
     </group>
 </world>

@@ -51,6 +51,7 @@ struct ModelInfo {
     std::string file;
     std::string texture;
     Material material;
+    bool isSkybox;
 };
 
 struct Group {

@@ -22,7 +22,6 @@ struct Model {
     GLuint textureID;
     bool hasTexture;
     Material material;
-    bool hasMaterial;
 
     GLuint vertexBuffer;
     GLuint indexBuffer;
@@ -30,6 +29,8 @@ struct Model {
 
     BoundingBox boundingBox;
     bool hasBoundingBox;
+
+    bool isSkybox;
 };
 
 #endif
