@@ -10855,14 +10855,14 @@
     <group>
         <transform>
             <translate time="20" align="true">
-                <point x="-50" y="30" z="0" />
-                <point x="-30" y="20" z="20" />
-                <point x="0" y="10" z="0" />
-                <point x="30" y="20" z="-20" />
-                <point x="50" y="30" z="0" />
-                <point x="30" y="40" z="20" />
-                <point x="0" y="50" z="0" />
-                <point x="-30" y="40" z="-20" />
+                <point x="-100" y="30" z="0" />
+                <point x="-70" y="25" z="70" />
+                <point x="0" y="20" z="100" />
+                <point x="70" y="25" z="70" />
+                <point x="100" y="30" z="0" />
+                <point x="70" y="35" z="-70" />
+                <point x="0" y="40" z="-100" />
+                <point x="-70" y="35" z="-70" />
             </translate>
             <rotate x="0" y="1" z="0" time="5" />
             <scale x="0.5" y="0.5" z="0.5" />

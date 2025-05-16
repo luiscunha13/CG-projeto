@@ -462,92 +462,101 @@ GLuint loadTexture(const std::string& s) {
 }
 
 void renderModel(const Model& model) {
-    // Set material properties
-    float diffuse[4] = {model.material.diffuse.x, model.material.diffuse.y, model.material.diffuse.z, 1.0f};
-    float ambient[4] = {model.material.ambient.x, model.material.ambient.y, model.material.ambient.z, 1.0f};
-    float specular[4] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
-    float emissive[4] = {model.material.emissive.x, model.material.emissive.y, model.material.emissive.z, 1.0f};
-
-    GLboolean depthMaskState;
     if (model.isSkybox) {
-        // Save states properly
-        glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskState);
+        // Disable lighting for skybox
+        glDisable(GL_LIGHTING);
 
-        glDisable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
-        glCullFace(GL_FRONT);
+        // Enable texture and bind skybox texture
+        if (model.hasTexture && model.textureID > 0) {
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, model.textureID);
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+        }
 
-        glPushMatrix();
-        glLoadIdentity();
+        // Disable culling to render the inside faces
+        glDisable(GL_CULL_FACE);
 
-        float skyboxEmissive[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, skyboxEmissive);
-        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, skyboxEmissive);
-        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, skyboxEmissive);
+        // Set depth function to less or equal (so skybox is drawn behind everything)
+        glDepthFunc(GL_LEQUAL);
+
+        // Bind the vertex buffer
+        glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
+
+        // Set up vertex arrays
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex3f), 0);
+
+        // Set up texture coordinate arrays if texture exists
+        if (model.hasTexture && model.textureID > 0) {
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, s));
+        }
+
+        // Bind the index buffer and draw
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+        glDrawElements(GL_TRIANGLES, model.n_indices, GL_UNSIGNED_INT, 0);
+
+        // Cleanup
+        glDisableClientState(GL_VERTEX_ARRAY);
+        if (model.hasTexture && model.textureID > 0) {
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        }
+
+        // Restore OpenGL states
+        glEnable(GL_CULL_FACE);
+        glDepthFunc(GL_LESS);
+        glEnable(GL_LIGHTING);
+        if (model.hasTexture && model.textureID > 0) {
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
     } else {
+        // Regular model rendering (existing code)
+        float diffuse[4] = {model.material.diffuse.x, model.material.diffuse.y, model.material.diffuse.z, 1.0f};
+        float ambient[4] = {model.material.ambient.x, model.material.ambient.y, model.material.ambient.z, 1.0f};
+        float specular[4] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
+        float emissive[4] = {model.material.emissive.x, model.material.emissive.y, model.material.emissive.z, 1.0f};
+
         glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
         glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
         glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
         glMaterialfv(GL_FRONT, GL_EMISSION, emissive);
         glMaterialf(GL_FRONT, GL_SHININESS, model.material.shininess);
-    }
 
-    if (model.hasTexture && model.textureID > 0) {
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, model.textureID);
-        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    } else {
-        glDisable(GL_TEXTURE_2D);
-    }
+        if (model.hasTexture && model.textureID > 0) {
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, model.textureID);
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        } else {
+            glDisable(GL_TEXTURE_2D);
+        }
 
-    // Bind the vertex buffer
-    glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex3f), 0);
 
-    // Set up vertex arrays
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_FLOAT, sizeof(Vertex3f), 0);
+        glEnableClientState(GL_NORMAL_ARRAY);
+        glNormalPointer(GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, nx));
 
-    // Set up normal arrays
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glNormalPointer(GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, nx));
+        if (model.hasTexture && model.textureID > 0) {
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, s));
+        }
 
-    // Set up texture coordinate arrays if texture exists
-    if (model.hasTexture && model.textureID > 0) {
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, s));
-    }
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+        glDrawElements(GL_TRIANGLES, model.n_indices, GL_UNSIGNED_INT, 0);
 
-    // Bind the index buffer and draw
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
-    glDrawElements(GL_TRIANGLES, model.n_indices, GL_UNSIGNED_INT, 0);
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_NORMAL_ARRAY);
+        if (model.hasTexture && model.textureID > 0) {
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        }
 
-    // Cleanup
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_NORMAL_ARRAY);
-    if (model.hasTexture && model.textureID > 0) {
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    }
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    // Unbind buffers
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    if (model.hasTexture && model.textureID > 0) {
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-
-    if (model.isSkybox) {
-        glPopMatrix();
-
-        // Restore states
-        glEnable(GL_DEPTH_TEST);
-        glCullFace(GL_BACK);
-        glDepthMask(depthMaskState);
-
-        // Reset material and color
-        float defaultColor[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, defaultColor);
-        glColor3f(1.0f, 1.0f, 1.0f); // Reset color state
+        if (model.hasTexture && model.textureID > 0) {
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
     }
 }
 
@@ -860,8 +869,6 @@ void renderScene() {
         cameraChanged = false;
     }
 
-    renderLights(world);
-
     /*
     for (const auto& model : models) {
         for (const auto& transformation : model.transformations) {
@@ -878,8 +885,12 @@ void renderScene() {
     int totalModels = models.size() + skyboxes.size();
     int renderedModels = 0;
 
+    glDepthMask(GL_FALSE);
     for (auto& model : skyboxes) {
         glPushMatrix();
+
+        glTranslatef(camX, camY, camZ);
+
         applyTransformations(model.transformations);
 
         if (!model.vboInitialized) {
@@ -890,6 +901,9 @@ void renderScene() {
         glPopMatrix();
         renderedModels++;
     }
+    glDepthMask(GL_TRUE);
+
+    renderLights(world);
 
     if(axisvisible)
         drawAxis();
@@ -1280,6 +1294,7 @@ void run_engine(World new_world, int argc, char **argv) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     updateCamera();
+    extractFrustumPlanes();
     atexit(cleanupVBOs);
 
     // enter GLUT's main cycle
