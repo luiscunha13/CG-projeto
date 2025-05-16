@@ -321,22 +321,36 @@ void setupLighting(const World& world) {
     }
 
     glEnable(GL_RESCALE_NORMAL);
+    float amb[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
-    float amb[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, amb);
 
+    const auto nrlights = std::min(world.lights.size(), (size_t)8);
 
-    glEnable(GL_LIGHTING);
+    for (int i = 0; i < 8; ++i){
+        glLightf(GL_LIGHT0 + i, GL_SPOT_CUTOFF, 180);
+        glDisable(GL_LIGHT0 + i);
+    }
 
-    for (size_t i = 0; i < world.lights.size() && world.lights.size() < 8; i++) {
+    float w[4] = {1.0, 1.0, 1.0, 1.0};
+
+    for (int i = 0; i < nrlights; ++i){
         GLenum lightID = GL_LIGHT0 + i;
-        const Light& light = world.lights[i];
 
-        float w[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-
+        glEnable(lightID);
         glLightfv(lightID, GL_DIFFUSE, w);
         glLightfv(lightID, GL_SPECULAR, w);
+    }
 
+
+}
+
+void renderLights(const World& world){
+    const auto nrlights = std::min(world.lights.size(), (size_t)8);
+
+    for (size_t i = 0; i < nrlights; i++) {
+        GLenum lightID = GL_LIGHT0 + i;
+        const Light& light = world.lights[i];
 
         switch (light.type) {
             case Light::DIRECTIONAL: {
@@ -459,7 +473,6 @@ void renderModel(const Model& model) {
         // Save states properly
         glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskState);
 
-        // Disable depth test and depth writing for skybox
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
         glCullFace(GL_FRONT);
@@ -472,11 +485,11 @@ void renderModel(const Model& model) {
         glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, skyboxEmissive);
         glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, skyboxEmissive);
     } else {
-        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, diffuse);
-        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ambient);
-        glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
-        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissive);
-        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, model.material.shininess);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
+        glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
+        glMaterialfv(GL_FRONT, GL_EMISSION, emissive);
+        glMaterialf(GL_FRONT, GL_SHININESS, model.material.shininess);
     }
 
     if (model.hasTexture && model.textureID > 0) {
@@ -524,7 +537,7 @@ void renderModel(const Model& model) {
     }
 
     if (model.isSkybox) {
-        glPopMatrix();  // Restore original matrix
+        glPopMatrix();
 
         // Restore states
         glEnable(GL_DEPTH_TEST);
@@ -724,15 +737,12 @@ void calculateBoundingVolumes(Model& model) {
     model.hasBoundingSphere = true;
 }
 
-void renderBoundingSphere(const Vertex3f& center, float radius, const float color[3] = nullptr) {
+void renderBoundingSphere(const Vertex3f& center, float radius) {
     glDisable(GL_LIGHTING);
 
-    // Set color (default to yellow if none specified)
-    if (color) {
-        glColor3fv(color);
-    } else {
-        glColor3f(1.0f, 1.0f, 0.0f); // Yellow
-    }
+    float color[3] = {0.0f, 1.0f, 0.0f}; // Green for visible
+
+    glColor3fv(color);
 
     // Save current matrix state
     glPushMatrix();
@@ -802,7 +812,39 @@ void printRenderedModels(int totalModels, int renderedModels){
     glEnable(GL_LIGHTING);
 }
 
+void printFPS(float fps) {
+    glDisable(GL_LIGHTING);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), 0, glutGet(GLUT_WINDOW_HEIGHT));
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    std::string fpsText = "FPS: " + std::to_string(fps);
+    // Only show 2 decimal places
+    fpsText = fpsText.substr(0, fpsText.find('.') + 3);
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glRasterPos2i(10, glutGet(GLUT_WINDOW_HEIGHT) - 20);
+    for (char c : fpsText) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
+    }
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glEnable(GL_LIGHTING);
+}
+
 void renderScene() {
+
+    static int frameCount = 0;
+    static float fps = 0;
+    static int currentTime = 0;
+    static int previousTime = glutGet(GLUT_ELAPSED_TIME);
 
     // clear buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -818,7 +860,7 @@ void renderScene() {
         cameraChanged = false;
     }
 
-    setupLighting(world);
+    renderLights(world);
 
     /*
     for (const auto& model : models) {
@@ -862,10 +904,8 @@ void renderScene() {
             renderedModels++;
 
             if(cullingVisible){
-                float color[3] = {0.0f, 1.0f, 0.0f}; // Green for visible
-                renderBoundingSphere(sphereCenter, sphereRadius, color);
+                renderBoundingSphere(sphereCenter, sphereRadius);
             }
-
 
         }
 
@@ -881,7 +921,18 @@ void renderScene() {
         glPopMatrix();
     }
 
+    frameCount++;
+    currentTime = glutGet(GLUT_ELAPSED_TIME);
+    int timeInterval = currentTime - previousTime;
+
+    if (timeInterval > 1000) {
+        fps = frameCount / (timeInterval / 1000.0f);
+        previousTime = currentTime;
+        frameCount = 0;
+    }
+
     printRenderedModels(totalModels, renderedModels);
+    printFPS(fps);
 
     updateCamera();
     glutSwapBuffers();
@@ -971,7 +1022,22 @@ void processKeys(unsigned char key, int x, int y) {
                 setThirdPersonCamera(0);
             }
             break;
-        case 'n':
+        case 'f':
+            cullingVisible = !cullingVisible;
+            std::cout << "Frustum Culling: " << (cullingVisible ? "Enabled" : "Disabled") << std::endl;
+            break;
+        case 'x':
+            axisvisible = !axisvisible;
+            std::cout << "Axis: " << (axisvisible ? "Visible" : "Hidden") << std::endl;
+            break;
+    }
+    updateCamera();
+    glutPostRedisplay();
+}
+
+void processSpecialKeys(int key, int x, int y){
+    switch (key){
+        case GLUT_KEY_RIGHT:
             if(thirdpersoncamera){
                 if (!models.empty()) {
                     if (targetModelIndex == -1) {
@@ -984,8 +1050,7 @@ void processKeys(unsigned char key, int x, int y) {
                 }
             }
             break;
-
-        case 'p': // Previous model
+        case GLUT_KEY_LEFT:
             if(thirdpersoncamera){
                 if (!models.empty()) {
                     if (targetModelIndex == -1) {
@@ -998,17 +1063,7 @@ void processKeys(unsigned char key, int x, int y) {
                 }
             }
             break;
-        case 'f':
-            cullingVisible = !cullingVisible;
-            std::cout << "Frustum Culling: " << (cullingVisible ? "Enabled" : "Disabled") << std::endl;
-            break;
-        case 'x':
-            axisvisible = !axisvisible;
-            std::cout << "Axis: " << (axisvisible ? "Visible" : "Hidden") << std::endl;
-            break;
     }
-    updateCamera();
-    glutPostRedisplay();
 }
 
 void processMouseMotion(int x, int y) {
@@ -1208,6 +1263,7 @@ void run_engine(World new_world, int argc, char **argv) {
     glutDisplayFunc(renderScene);
     glutReshapeFunc(changeSize);
     glutKeyboardFunc(processKeys);
+    glutSpecialFunc(processSpecialKeys);
     glutMotionFunc(processMouseMotion);
     glutMouseFunc(processMouseButtons);
 
@@ -1218,6 +1274,7 @@ void run_engine(World new_world, int argc, char **argv) {
     glEnable(GL_TEXTURE_2D);
     glShadeModel(GL_SMOOTH);
 
+    setupLighting(world);
     loadModels();
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

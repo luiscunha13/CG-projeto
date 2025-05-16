@@ -6,7 +6,6 @@
 #include <GL/glut.h>
 #include <vertex.h>
 
-// Add after global variables
 struct Plane {
     float a, b, c, d;
 
@@ -24,7 +23,7 @@ struct Plane {
 };
 
 struct Frustum {
-    Plane planes[6]; // near, far, left, right, bottom, top
+    Plane planes[6];
 };
 
 Frustum frustum;
