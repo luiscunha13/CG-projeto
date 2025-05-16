@@ -2,6 +2,7 @@
 #include <engine.h>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <Model.h>
 #include <Frustum.h>
 #include <vector>
@@ -537,11 +538,12 @@ void renderModel(const Model& model) {
 }
 
 static void applyTransformations(const std::vector<Transformation>& transformations, bool applyAnimation = true) {
+    float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f; // Get current time once
+
     for (const auto& transformation : transformations) {
         switch (transformation.type) {
             case Transformation::Type::Translate:
-                if (transformation.animated) {
-                    float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+                if (transformation.animated && applyAnimation) {
                     float normalizedTime = fmod(elapsedTime / transformation.animation.time, 1.0f);
                     float deriv[3];
                     Vertex3f point = getPointOnCurve(
@@ -572,7 +574,6 @@ static void applyTransformations(const std::vector<Transformation>& transformati
 
             case Transformation::Type::Rotate:
                 if (transformation.animated && applyAnimation) {
-                    float elapsedTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
                     float angle = fmod(360.0f * elapsedTime / transformation.animation.time, 360.0f);
                     glRotatef(angle,
                               transformation.coords.x,
@@ -607,28 +608,66 @@ static Vertex3f getTransformedPosition(const std::vector<Transformation>& transf
     return Vertex3f{modelView[12], modelView[13], modelView[14]};
 }
 
+std::pair<Vertex3f, float> getTransformedSphere(const BoundingSphere& sphere,
+                                                const std::vector<Transformation>& transformations,
+                                                bool applyAnimation = true) {
+    glPushMatrix();
+    glLoadIdentity();
+
+    // Apply all transformations with the same animation timing as the model
+    applyTransformations(transformations, applyAnimation);
+
+    // Get the full transformation matrix
+    float modelView[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+    glPopMatrix();
+
+    // Transform center point
+    Vertex3f center = sphere.center;
+    Vertex3f tCenter = {
+            modelView[0] * center.x + modelView[4] * center.y + modelView[8] * center.z + modelView[12],
+            modelView[1] * center.x + modelView[5] * center.y + modelView[9] * center.z + modelView[13],
+            modelView[2] * center.x + modelView[6] * center.y + modelView[10] * center.z + modelView[14]
+    };
+
+    // Calculate scale factor (using the maximum of all scale components)
+    float scaleX = sqrt(modelView[0]*modelView[0] + modelView[1]*modelView[1] + modelView[2]*modelView[2]);
+    float scaleY = sqrt(modelView[4]*modelView[4] + modelView[5]*modelView[5] + modelView[6]*modelView[6]);
+    float scaleZ = sqrt(modelView[8]*modelView[8] + modelView[9]*modelView[9] + modelView[10]*modelView[10]);
+    float maxScale = std::max({scaleX, scaleY, scaleZ});
+
+    return {tCenter, sphere.radius * maxScale};
+}
+
 void updateCamera() {
     if (targetModelIndex >= 0 && targetModelIndex < models.size()) {
-        // Third-person camera mode
         const Model& target = models[targetModelIndex];
 
-        Vertex3f targetPos = getTransformedPosition(target.transformations);
+        // Get the fully transformed sphere with animations
+        auto [sphereCenter, sphereRadius] = getTransformedSphere(target.boundingSphere, target.transformations, true);
+
+        // Set follow distance to be slightly larger than the sphere radius
+        followDistance = sphereRadius * 2.0f;
+
+        // Adjust height proportionally to the sphere size
+        followHeight = sphereRadius * 1.0f;
 
         // Calculate camera position based on angles and distance
-        camX = targetPos.x - followDistance * cos(hAngle) * cos(vAngle);
-        camY = targetPos.y + followDistance * sin(vAngle) + followHeight;
-        camZ = targetPos.z - followDistance * sin(hAngle) * cos(vAngle);
+        camX = sphereCenter.x - followDistance * cos(hAngle) * cos(vAngle);
+        camY = sphereCenter.y + followHeight + followDistance * sin(vAngle) * 0.5f;
+        camZ = sphereCenter.z - followDistance * sin(hAngle) * cos(vAngle);
 
-        // Look at the target (with slight height adjustment)
-        lookAtX = targetPos.x;
-        lookAtY = targetPos.y + followHeight * 0.5f;
-        lookAtZ = targetPos.z;
+        // Look at the center of the sphere
+        lookAtX = sphereCenter.x;
+        lookAtY = sphereCenter.y + followHeight * 0.5f;
+        lookAtZ = sphereCenter.z;
     } else {
-        // Original first-person camera behavior
+        // First-person camera behavior
         lookAtX = camX + cos(hAngle) * cos(vAngle);
         lookAtY = camY + sin(vAngle);
         lookAtZ = camZ + sin(hAngle) * cos(vAngle);
     }
+
 
     // Update up vector based on vertical angle
     upX = -cos(hAngle) * sin(vAngle);
@@ -654,12 +693,8 @@ void updateCamera() {
     }
 }
 
-void setThirdPersonCamera(int modelIndex, float distance = 5.0f, float height = 2.0f) {
-    targetModelIndex = modelIndex;
-    followDistance = distance;
-    followHeight = height;
+void setThirdPersonCamera(int modelIndex) {
 
-    // Reset angles to default behind-the-target view
     hAngle = M_PI; // Face the front of the target
     vAngle = -0.3f; // Slightly look down
 
@@ -673,28 +708,39 @@ void setFirstPersonCamera() {
 
 void calculateBoundingVolumes(Model& model) {
     if (model.vertices.empty()) {
-        model.hasBoundingBox = false;
+        model.hasBoundingSphere = false;
         return;
     }
 
-    // Initialize min/max with first vertex
-    model.boundingBox.min = model.boundingBox.max = model.vertices[0];
-
-    // Calculate AABB
+    // Calculate center as the average of all vertices
+    Vertex3f center = {0, 0, 0};
     for (const auto& v : model.vertices) {
-        model.boundingBox.min.x = std::min(model.boundingBox.min.x, v.x);
-        model.boundingBox.min.y = std::min(model.boundingBox.min.y, v.y);
-        model.boundingBox.min.z = std::min(model.boundingBox.min.z, v.z);
+        center.x += v.x;
+        center.y += v.y;
+        center.z += v.z;
+    }
+    center.x /= model.vertices.size();
+    center.y /= model.vertices.size();
+    center.z /= model.vertices.size();
 
-        model.boundingBox.max.x = std::max(model.boundingBox.max.x, v.x);
-        model.boundingBox.max.y = std::max(model.boundingBox.max.y, v.y);
-        model.boundingBox.max.z = std::max(model.boundingBox.max.z, v.z);
+    // Calculate maximum radius
+    float maxRadius = 0.0f;
+    for (const auto& v : model.vertices) {
+        float dx = v.x - center.x;
+        float dy = v.y - center.y;
+        float dz = v.z - center.z;
+        float distanceSquared = dx*dx + dy*dy + dz*dz;
+        if (distanceSquared > maxRadius) {
+            maxRadius = distanceSquared;
+        }
     }
 
-    model.hasBoundingBox = true;
+    model.boundingSphere.center = center;
+    model.boundingSphere.radius = sqrt(maxRadius);
+    model.hasBoundingSphere = true;
 }
 
-void renderBoundingBox(const Vertex3f& min, const Vertex3f& max, const float color[3] = nullptr) {
+void renderBoundingSphere(const Vertex3f& center, float radius, const float color[3] = nullptr) {
     glDisable(GL_LIGHTING);
 
     // Set color (default to yellow if none specified)
@@ -704,70 +750,25 @@ void renderBoundingBox(const Vertex3f& min, const Vertex3f& max, const float col
         glColor3f(1.0f, 1.0f, 0.0f); // Yellow
     }
 
-    glBegin(GL_LINES);
-
-    // Bottom face
-    glVertex3f(min.x, min.y, min.z); glVertex3f(max.x, min.y, min.z);
-    glVertex3f(max.x, min.y, min.z); glVertex3f(max.x, min.y, max.z);
-    glVertex3f(max.x, min.y, max.z); glVertex3f(min.x, min.y, max.z);
-    glVertex3f(min.x, min.y, max.z); glVertex3f(min.x, min.y, min.z);
-
-    // Top face
-    glVertex3f(min.x, max.y, min.z); glVertex3f(max.x, max.y, min.z);
-    glVertex3f(max.x, max.y, min.z); glVertex3f(max.x, max.y, max.z);
-    glVertex3f(max.x, max.y, max.z); glVertex3f(min.x, max.y, max.z);
-    glVertex3f(min.x, max.y, max.z); glVertex3f(min.x, max.y, min.z);
-
-    // Vertical edges
-    glVertex3f(min.x, min.y, min.z); glVertex3f(min.x, max.y, min.z);
-    glVertex3f(max.x, min.y, min.z); glVertex3f(max.x, max.y, min.z);
-    glVertex3f(max.x, min.y, max.z); glVertex3f(max.x, max.y, max.z);
-    glVertex3f(min.x, min.y, max.z); glVertex3f(min.x, max.y, max.z);
-
-    glEnd();
-    glEnable(GL_LIGHTING);
-}
-
-std::pair<Vertex3f, Vertex3f> getTransformedAABB(const BoundingBox& bbox, const std::vector<Transformation>& transformations) {
+    // Save current matrix state
     glPushMatrix();
-    glLoadIdentity();
 
-    // Apply transformations but SKIP animations (which cause pulsating)
-    applyTransformations(transformations, false);  // false means don't apply animation
+    // Move to sphere center
+    glTranslatef(center.x, center.y, center.z);
 
-    float modelView[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+    // Set up wireframe rendering
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    // Draw sphere (using GLUT's built-in sphere)
+    glutWireSphere(radius, 16, 16);
+
+    // Restore polygon mode
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    // Restore matrix state
     glPopMatrix();
 
-    Vertex3f corners[8] = {
-            {bbox.min.x, bbox.min.y, bbox.min.z},
-            {bbox.max.x, bbox.min.y, bbox.min.z},
-            {bbox.min.x, bbox.max.y, bbox.min.z},
-            {bbox.max.x, bbox.max.y, bbox.min.z},
-            {bbox.min.x, bbox.min.y, bbox.max.z},
-            {bbox.max.x, bbox.min.y, bbox.max.z},
-            {bbox.min.x, bbox.max.y, bbox.max.z},
-            {bbox.max.x, bbox.max.y, bbox.max.z}
-    };
-
-    Vertex3f tMin = {INFINITY, INFINITY, INFINITY};
-    Vertex3f tMax = {-INFINITY, -INFINITY, -INFINITY};
-
-    for (auto& corner : corners) {
-        // Apply the transformation matrix
-        float x = modelView[0] * corner.x + modelView[4] * corner.y + modelView[8] * corner.z + modelView[12];
-        float y = modelView[1] * corner.x + modelView[5] * corner.y + modelView[9] * corner.z + modelView[13];
-        float z = modelView[2] * corner.x + modelView[6] * corner.y + modelView[10] * corner.z + modelView[14];
-
-        tMin.x = std::min(tMin.x, x);
-        tMin.y = std::min(tMin.y, y);
-        tMin.z = std::min(tMin.z, z);
-        tMax.x = std::max(tMax.x, x);
-        tMax.y = std::max(tMax.y, y);
-        tMax.z = std::max(tMax.z, z);
-    }
-
-    return {tMin, tMax};
+    glEnable(GL_LIGHTING);
 }
 
 void drawAxis(){
@@ -854,19 +855,16 @@ void renderScene() {
     int renderedModels = 0;
 
     for (auto& model : models) {
-        if (model.hasBoundingBox) {
-            // Get the transformed AABB
-            Vertex3f tMin, tMax;
-            std::tie(tMin, tMax) = getTransformedAABB(model.boundingBox, model.transformations);
+        if (model.hasBoundingSphere) {
+            auto [sphereCenter, sphereRadius] = getTransformedSphere(model.boundingSphere, model.transformations, true);
 
-            // Perform AABB frustum culling
-            if (!isAABBInFrustum(tMin, tMax)) {
+            if (!isSphereInFrustum(sphereCenter, sphereRadius)) {
                 continue; // Skip this model if it's not visible
             }
             renderedModels++;
 
-            //float color[3] = {0.0f, 1.0f, 0.0f}; // Green for visible
-            //renderBoundingBox(tMin, tMax, color);
+            float color[3] = {0.0f, 1.0f, 0.0f}; // Green for visible
+            renderBoundingSphere(sphereCenter, sphereRadius, color);
         }
 
         // Render the model

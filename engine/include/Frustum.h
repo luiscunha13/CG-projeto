@@ -91,17 +91,11 @@ void extractFrustumPlanes() {
     frustum.planes[5].normalize();
 }
 
-bool isAABBInFrustum(const Vertex3f& min, const Vertex3f& max) {
+bool isSphereInFrustum(const Vertex3f& center, float radius) {
     for (int i = 0; i < 6; i++) {
         const Plane& p = frustum.planes[i];
-
-        // Test the AABB against the plane
-        Vertex3f positive = min;
-        if (p.a >= 0) positive.x = max.x;
-        if (p.b >= 0) positive.y = max.y;
-        if (p.c >= 0) positive.z = max.z;
-
-        if (p.distance(positive) < 0) {
+        float distance = p.distance(center);
+        if (distance < -radius) {
             return false;
         }
     }

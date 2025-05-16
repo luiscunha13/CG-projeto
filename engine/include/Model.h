@@ -7,9 +7,9 @@
 #include <GL/gl.h>
 #include <string>
 
-struct BoundingBox {
-    Vertex3f min;
-    Vertex3f max;
+struct BoundingSphere {
+    Vertex3f center;
+    float radius;
 };
 
 struct Model {
@@ -27,8 +27,8 @@ struct Model {
     GLuint indexBuffer;
     bool vboInitialized;
 
-    BoundingBox boundingBox;
-    bool hasBoundingBox;
+    BoundingSphere boundingSphere;
+    bool hasBoundingSphere;
 
     bool isSkybox;
 };
