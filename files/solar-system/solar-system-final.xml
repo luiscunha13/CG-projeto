@@ -209,7 +209,7 @@
                     <translate time="7" align="true">
                         <point x="1.5" y="0" z="1.5" />
                         <point x="-1.5" y="0" z="1.5" />
-                        <point x="-1.5" y="0" z="1.5" />
+                        <point x="-1.5" y="0" z="-1.5" />
                         <point x="1.5" y="0" z="-1.5" />
                     </translate>
                     <scale x="0.1" y="0.1" z="0.1" />

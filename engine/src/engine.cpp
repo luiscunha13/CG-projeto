@@ -9,16 +9,13 @@
 #include <string>
 #include <IL/il.h>
 #include <GL/glut.h>
-#include <unordered_set>
 
 World world = {};
 std::vector<Model> models;
+std::vector<Model> skyboxes;
 
 bool cameraChanged = true;
-float lastCamX, lastCamY, lastCamZ;
-float lastLookAtX, lastLookAtY, lastLookAtZ;
-float lastUpX, lastUpY, lastUpZ;
-float lastFov;
+bool thirdpersoncamera = false;
 
 float camX, camY, camZ;
 float lookAtX, lookAtY, lookAtZ;
@@ -30,12 +27,13 @@ float speed = 1.0f; // Movement speed
 
 float fov = 45.0f;
 
-int targetModelIndex = -1;  // Index of the model to follow (-1 for none)
-float followDistance = 5.0f; // Distance from target
-float followHeight = 2.0f; // Height above target
+int targetModelIndex = -1;
 
 bool mouseLeftDown = false;
 int lastMouseX = -1, lastMouseY = -1;
+
+bool cullingVisible = false;
+bool axisvisible = false;
 
 float catmull_matrix[4][4] = {{-0.5f,  1.5f, -1.5f,  0.5f},
                               { 1.0f, -2.5f,  2.0f, -0.5f},
@@ -456,18 +454,18 @@ void renderModel(const Model& model) {
     float specular[4] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
     float emissive[4] = {model.material.emissive.x, model.material.emissive.y, model.material.emissive.z, 1.0f};
 
+    GLboolean depthMaskState;
     if (model.isSkybox) {
+        // Save states properly
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskState);
+
+        // Disable depth test and depth writing for skybox
         glDisable(GL_DEPTH_TEST);
-        glCullFace(GL_FRONT);
         glDepthMask(GL_FALSE);
+        glCullFace(GL_FRONT);
 
         glPushMatrix();
         glLoadIdentity();
-
-        // Only keep rotation (remove translation) so skybox always surrounds camera
-        gluLookAt(0, 0, 0,
-                  lookAtX - camX, lookAtY - camY, lookAtZ - camZ,
-                  upX, upY, upZ);
 
         float skyboxEmissive[4] = {1.0f, 1.0f, 1.0f, 1.0f};
         glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, skyboxEmissive);
@@ -527,13 +525,16 @@ void renderModel(const Model& model) {
 
     if (model.isSkybox) {
         glPopMatrix();  // Restore original matrix
+
+        // Restore states
         glEnable(GL_DEPTH_TEST);
         glCullFace(GL_BACK);
-        glDepthMask(GL_TRUE);
+        glDepthMask(depthMaskState);
 
-        // Reset material
+        // Reset material and color
         float defaultColor[4] = {0.0f, 0.0f, 0.0f, 1.0f};
         glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, defaultColor);
+        glColor3f(1.0f, 1.0f, 1.0f); // Reset color state
     }
 }
 
@@ -643,57 +644,40 @@ void updateCamera() {
     if (targetModelIndex >= 0 && targetModelIndex < models.size()) {
         const Model& target = models[targetModelIndex];
 
-        // Get the fully transformed sphere with animations
         auto [sphereCenter, sphereRadius] = getTransformedSphere(target.boundingSphere, target.transformations, true);
 
-        // Set follow distance to be slightly larger than the sphere radius
-        followDistance = sphereRadius * 2.0f;
+        float adaptiveFollowDistance = sphereRadius * 3.0f;
 
-        // Adjust height proportionally to the sphere size
-        followHeight = sphereRadius * 1.0f;
+        float adaptiveFollowHeight = sphereRadius * 0.75f;
 
-        // Calculate camera position based on angles and distance
-        camX = sphereCenter.x - followDistance * cos(hAngle) * cos(vAngle);
-        camY = sphereCenter.y + followHeight + followDistance * sin(vAngle) * 0.5f;
-        camZ = sphereCenter.z - followDistance * sin(hAngle) * cos(vAngle);
+        camX = sphereCenter.x + adaptiveFollowDistance * cos(hAngle) * cos(vAngle);
+        camY = sphereCenter.y + adaptiveFollowHeight + adaptiveFollowDistance * sin(vAngle);
+        camZ = sphereCenter.z + adaptiveFollowDistance * sin(hAngle) * cos(vAngle);
 
-        // Look at the center of the sphere
+        float lookAtHeight = sphereRadius * 0.5f;
         lookAtX = sphereCenter.x;
-        lookAtY = sphereCenter.y + followHeight * 0.5f;
+        lookAtY = sphereCenter.y + lookAtHeight;
         lookAtZ = sphereCenter.z;
+
+        upX = 0.0f;
+        upY = 1.0f;
+        upZ = 0.0f;
+
     } else {
-        // First-person camera behavior
         lookAtX = camX + cos(hAngle) * cos(vAngle);
         lookAtY = camY + sin(vAngle);
         lookAtZ = camZ + sin(hAngle) * cos(vAngle);
+
+        upX = -cos(hAngle) * sin(vAngle);
+        upY = cos(vAngle);
+        upZ = -sin(hAngle) * sin(vAngle);
     }
 
-
-    // Update up vector based on vertical angle
-    upX = -cos(hAngle) * sin(vAngle);
-    upY = cos(vAngle);
-    upZ = -sin(hAngle) * sin(vAngle);
-
-    cameraChanged = (camX != lastCamX || camY != lastCamY || camZ != lastCamZ ||
-                     lookAtX != lastLookAtX || lookAtY != lastLookAtY || lookAtZ != lastLookAtZ ||
-                     upX != lastUpX || upY != lastUpY || upZ != lastUpZ ||
-                     fov != lastFov);
-
-    if (cameraChanged) {
-        lastCamX = camX;
-        lastCamY = camY;
-        lastCamZ = camZ;
-        lastLookAtX = lookAtX;
-        lastLookAtY = lookAtY;
-        lastLookAtZ = lookAtZ;
-        lastUpX = upX;
-        lastUpY = upY;
-        lastUpZ = upZ;
-        lastFov = fov;
-    }
+    cameraChanged = true;
 }
 
 void setThirdPersonCamera(int modelIndex) {
+    targetModelIndex = modelIndex;
 
     hAngle = M_PI; // Face the front of the target
     vAngle = -0.3f; // Slightly look down
@@ -836,9 +820,6 @@ void renderScene() {
 
     setupLighting(world);
 
-    drawAxis();
-
-
     /*
     for (const auto& model : models) {
         for (const auto& transformation : model.transformations) {
@@ -851,8 +832,25 @@ void renderScene() {
         }
     }
     */
-    int totalModels = models.size();
+
+    int totalModels = models.size() + skyboxes.size();
     int renderedModels = 0;
+
+    for (auto& model : skyboxes) {
+        glPushMatrix();
+        applyTransformations(model.transformations);
+
+        if (!model.vboInitialized) {
+            initModelVBOs(model);
+        }
+        renderModel(model);
+
+        glPopMatrix();
+        renderedModels++;
+    }
+
+    if(axisvisible)
+        drawAxis();
 
     for (auto& model : models) {
         if (model.hasBoundingSphere) {
@@ -863,8 +861,12 @@ void renderScene() {
             }
             renderedModels++;
 
-            float color[3] = {0.0f, 1.0f, 0.0f}; // Green for visible
-            renderBoundingSphere(sphereCenter, sphereRadius, color);
+            if(cullingVisible){
+                float color[3] = {0.0f, 1.0f, 0.0f}; // Green for visible
+                renderBoundingSphere(sphereCenter, sphereRadius, color);
+            }
+
+
         }
 
         // Render the model
@@ -960,35 +962,49 @@ void processKeys(unsigned char key, int x, int y) {
             std::cout << "Speed: " << speed << std::endl;
             break;
         case '1': // Switch to first-person camera
+            thirdpersoncamera = false;
             setFirstPersonCamera();
             break;
         case '3': // Switch to third-person camera (follow first model)
             if (!models.empty()) {
+                thirdpersoncamera = true;
                 setThirdPersonCamera(0);
             }
             break;
-        case 'n': // Next model
-            if (!models.empty()) {
-                if (targetModelIndex == -1) {
-                    // If not following any model, start with first one
-                    setThirdPersonCamera(0);
-                } else {
-                    // Cycle to next model
-                    setThirdPersonCamera((targetModelIndex + 1) % models.size());
+        case 'n':
+            if(thirdpersoncamera){
+                if (!models.empty()) {
+                    if (targetModelIndex == -1) {
+                        // If not following any model, start with first one
+                        setThirdPersonCamera(0);
+                    } else {
+                        // Cycle to next model
+                        setThirdPersonCamera((targetModelIndex + 1) % models.size());
+                    }
                 }
             }
             break;
 
         case 'p': // Previous model
-            if (!models.empty()) {
-                if (targetModelIndex == -1) {
-                    // If not following any model, start with last one
-                    setThirdPersonCamera(models.size() - 1);
-                } else {
-                    // Cycle to previous model
-                    setThirdPersonCamera((targetModelIndex - 1 + models.size()) % models.size());
+            if(thirdpersoncamera){
+                if (!models.empty()) {
+                    if (targetModelIndex == -1) {
+                        // If not following any model, start with last one
+                        setThirdPersonCamera(models.size() - 1);
+                    } else {
+                        // Cycle to previous model
+                        setThirdPersonCamera((targetModelIndex - 1 + models.size()) % models.size());
+                    }
                 }
             }
+            break;
+        case 'f':
+            cullingVisible = !cullingVisible;
+            std::cout << "Frustum Culling: " << (cullingVisible ? "Enabled" : "Disabled") << std::endl;
+            break;
+        case 'x':
+            axisvisible = !axisvisible;
+            std::cout << "Axis: " << (axisvisible ? "Visible" : "Hidden") << std::endl;
             break;
     }
     updateCamera();
@@ -1151,7 +1167,10 @@ void loadModelsGroup(const Group& group, const std::vector<Transformation>& pare
         Model model;
         if (readModelFromFile(modelInfo.file, model, modelInfo)) {
             model.transformations = transformations;
-            models.push_back(model);
+            if(model.isSkybox)
+                skyboxes.push_back(model);
+            else
+                models.push_back(model);
             std::cout << "Successfully loaded model from " << modelInfo.file << std::endl;
         } else {
             std::cerr << "Failed to load model from " << modelInfo.file << std::endl;
