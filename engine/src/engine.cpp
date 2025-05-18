@@ -34,6 +34,7 @@ int lastMouseX = -1, lastMouseY = -1;
 
 bool cullingVisible = false;
 bool axisvisible = false;
+bool wireframeMode = false;
 
 float catmull_matrix[4][4] = {{-0.5f,  1.5f, -1.5f,  0.5f},
                               { 1.0f, -2.5f,  2.0f, -0.5f},
@@ -51,21 +52,15 @@ void changeSize(int w, int h) {
     if(h == 0)
         h = 1;
 
-    // compute window's aspect ratio
     float ratio = w * 1.0 / h;
 
-    // Set the projection matrix as current
     glMatrixMode(GL_PROJECTION);
-    // Load Identity Matrix
     glLoadIdentity();
 
-    // Set the viewport to be the entire window
     glViewport(0, 0, w, h);
 
-    // Set perspective
     gluPerspective(fov ,ratio, 1.0f ,1000.0f);
 
-    // return to the model view matrix mode
     glMatrixMode(GL_MODELVIEW);
 
     cameraChanged = true;
@@ -123,7 +118,6 @@ std::vector<Vertex3f> calculateTangents(const std::vector<Vertex3f>& points) {
 void getPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, float *deriv, char algorithm) {
     float a[4][3];
     for (int i = 0; i < 3; i++) {
-        //hermite -> p2/p3 = m0/m1
         float p[4] = {p0[i], p1[i], p2[i], p3[i]};
         float res[4];
         float *matrix;
@@ -141,7 +135,6 @@ void getPoint(float t, float *p0, float *p1, float *p2, float *p3, float *pos, f
         a[3][i] = res[3];
     }
 
-    // Compute pos = T * A and deriv = T' * A
     float t_vec[4] = {t*t*t, t*t, t, 1};
     float t_deriv[4] = {3*t*t, 2*t, 1, 0};
     for (int i = 0; i < 3; i++) {
@@ -170,7 +163,6 @@ Vertex3f getGlobalCatmullRomPoint(const std::vector<Vertex3f>& points, float gt,
     int index = floor(t);
     t = t - index;
 
-    // indices store the points
     int indices[4];
     indices[0] = (index + pointCount-1)%pointCount;
     indices[1] = (indices[0]+1)%pointCount;
@@ -232,7 +224,6 @@ Vertex3f getGlobalHermitePoint(const std::vector<Vertex3f>& points, const std::v
 
 Vertex3f getPointOnCurve(const std::vector<Vertex3f>& points, float normalizedTime, float* derivOut, const std::string& algorithm) {
     if (algorithm == "hermite") {
-        // Calculate tangents
         std::vector<Vertex3f> tangents = calculateTangents(points);
         return getGlobalHermitePoint(points, tangents, normalizedTime, derivOut);
     } else {
@@ -242,12 +233,10 @@ Vertex3f getPointOnCurve(const std::vector<Vertex3f>& points, float normalizedTi
 
 
 void renderCatmullRomCurve(const std::vector<Vertex3f>& points) {
-    if (points.size() < 4) return;  // Need at least 4 points for Catmull-Rom
 
-    glColor3f(1.0f, 1.0f, 1.0f);  // White color for the curve
+    glColor3f(1.0f, 1.0f, 1.0f);
     glBegin(GL_LINE_LOOP);
 
-    // Draw 100 segments for smooth curve
     for (int i = 0; i <= 100; ++i) {
         float gt = (float)i / 100.0f;
         Vertex3f point = getGlobalCatmullRomPoint(points, gt);
@@ -382,7 +371,6 @@ void renderLights(const World& world){
 }
 
 GLuint loadTexture(const std::string& s) {
-    // Basic file existence check
     std::ifstream fileCheck(s);
     if (!fileCheck) {
         std::cerr << "ERROR: Texture file does not exist: " << s << std::endl;
@@ -394,7 +382,6 @@ GLuint loadTexture(const std::string& s) {
     unsigned char *texData;
     unsigned int texID = 0;
 
-    // Initialize DevIL if not already initialized
     static bool ilInitialized = false;
     if (!ilInitialized) {
         ilInit();
@@ -404,11 +391,9 @@ GLuint loadTexture(const std::string& s) {
         std::cout << "DevIL initialized" << std::endl;
     }
 
-    // Generate an IL image ID
     ilGenImages(1, &t);
     ilBindImage(t);
 
-    // Attempt to load image and report detailed errors
     ILboolean success = ilLoadImage((ILstring)s.c_str());
     if (!success) {
         ILenum error = ilGetError();
@@ -417,7 +402,6 @@ GLuint loadTexture(const std::string& s) {
         return 0;
     }
 
-    // Convert the image to RGBA format
     success = ilConvertImage(IL_RGBA, IL_UNSIGNED_BYTE);
     if (!success) {
         ILenum error = ilGetError();
@@ -426,12 +410,10 @@ GLuint loadTexture(const std::string& s) {
         return 0;
     }
 
-    // Get image dimensions and data
     tw = ilGetInteger(IL_IMAGE_WIDTH);
     th = ilGetInteger(IL_IMAGE_HEIGHT);
     texData = ilGetData();
 
-    // Generate OpenGL texture
     glGenTextures(1, &texID);
     if (texID == 0) {
         std::cerr << "Failed to generate GL texture ID" << std::endl;
@@ -439,23 +421,22 @@ GLuint loadTexture(const std::string& s) {
         return 0;
     }
 
-    // Bind and set texture parameters
     glBindTexture(GL_TEXTURE_2D, texID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,	GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    // send texture data to OpenGL
+    glTexParameteri(GL_TEXTURE_2D,	GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
+
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
 
-    // Check for OpenGL errors
     GLenum glError = glGetError();
     if (glError != GL_NO_ERROR) {
         std::cerr << "OpenGL Error in texture creation: " << glError << std::endl;
     }
 
-    // Clean up IL image
     ilDeleteImages(1, &t);
 
     return texID;
@@ -463,46 +444,36 @@ GLuint loadTexture(const std::string& s) {
 
 void renderModel(const Model& model) {
     if (model.isSkybox) {
-        // Disable lighting for skybox
         glDisable(GL_LIGHTING);
 
-        // Enable texture and bind skybox texture
         if (model.hasTexture && model.textureID > 0) {
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, model.textureID);
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
         }
 
-        // Disable culling to render the inside faces
         glDisable(GL_CULL_FACE);
 
-        // Set depth function to less or equal (so skybox is drawn behind everything)
         glDepthFunc(GL_LEQUAL);
 
-        // Bind the vertex buffer
         glBindBuffer(GL_ARRAY_BUFFER, model.vertexBuffer);
 
-        // Set up vertex arrays
         glEnableClientState(GL_VERTEX_ARRAY);
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex3f), 0);
 
-        // Set up texture coordinate arrays if texture exists
         if (model.hasTexture && model.textureID > 0) {
             glEnableClientState(GL_TEXTURE_COORD_ARRAY);
             glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex3f), (void*)offsetof(Vertex3f, s));
         }
 
-        // Bind the index buffer and draw
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.indexBuffer);
         glDrawElements(GL_TRIANGLES, model.n_indices, GL_UNSIGNED_INT, 0);
 
-        // Cleanup
         glDisableClientState(GL_VERTEX_ARRAY);
         if (model.hasTexture && model.textureID > 0) {
             glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         }
 
-        // Restore OpenGL states
         glEnable(GL_CULL_FACE);
         glDepthFunc(GL_LESS);
         glEnable(GL_LIGHTING);
@@ -510,7 +481,7 @@ void renderModel(const Model& model) {
             glBindTexture(GL_TEXTURE_2D, 0);
         }
     } else {
-        // Regular model rendering (existing code)
+
         float diffuse[4] = {model.material.diffuse.x, model.material.diffuse.y, model.material.diffuse.z, 1.0f};
         float ambient[4] = {model.material.ambient.x, model.material.ambient.y, model.material.ambient.z, 1.0f};
         float specular[4] = {model.material.specular.x, model.material.specular.y, model.material.specular.z, 1.0f};
@@ -619,33 +590,18 @@ static void applyTransformations(const std::vector<Transformation>& transformati
     }
 }
 
-static Vertex3f getTransformedPosition(const std::vector<Transformation>& transformations) {
-    glPushMatrix();
-    glLoadIdentity();
-    applyTransformations(transformations);
-
-    float modelView[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
-    glPopMatrix();
-
-    return Vertex3f{modelView[12], modelView[13], modelView[14]};
-}
-
 std::pair<Vertex3f, float> getTransformedSphere(const BoundingSphere& sphere,
                                                 const std::vector<Transformation>& transformations,
                                                 bool applyAnimation = true) {
     glPushMatrix();
     glLoadIdentity();
 
-    // Apply all transformations with the same animation timing as the model
     applyTransformations(transformations, applyAnimation);
 
-    // Get the full transformation matrix
     float modelView[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
     glPopMatrix();
 
-    // Transform center point
     Vertex3f center = sphere.center;
     Vertex3f tCenter = {
             modelView[0] * center.x + modelView[4] * center.y + modelView[8] * center.z + modelView[12],
@@ -653,7 +609,6 @@ std::pair<Vertex3f, float> getTransformedSphere(const BoundingSphere& sphere,
             modelView[2] * center.x + modelView[6] * center.y + modelView[10] * center.z + modelView[14]
     };
 
-    // Calculate scale factor (using the maximum of all scale components)
     float scaleX = sqrt(modelView[0]*modelView[0] + modelView[1]*modelView[1] + modelView[2]*modelView[2]);
     float scaleY = sqrt(modelView[4]*modelView[4] + modelView[5]*modelView[5] + modelView[6]*modelView[6]);
     float scaleZ = sqrt(modelView[8]*modelView[8] + modelView[9]*modelView[9] + modelView[10]*modelView[10]);
@@ -701,8 +656,8 @@ void updateCamera() {
 void setThirdPersonCamera(int modelIndex) {
     targetModelIndex = modelIndex;
 
-    hAngle = M_PI; // Face the front of the target
-    vAngle = -0.3f; // Slightly look down
+    hAngle = M_PI;
+    vAngle = -0.3f;
 
     updateCamera();
 }
@@ -718,7 +673,6 @@ void calculateBoundingVolumes(Model& model) {
         return;
     }
 
-    // Calculate center as the average of all vertices
     Vertex3f center = {0, 0, 0};
     for (const auto& v : model.vertices) {
         center.x += v.x;
@@ -729,7 +683,6 @@ void calculateBoundingVolumes(Model& model) {
     center.y /= model.vertices.size();
     center.z /= model.vertices.size();
 
-    // Calculate maximum radius
     float maxRadius = 0.0f;
     for (const auto& v : model.vertices) {
         float dx = v.x - center.x;
@@ -749,33 +702,26 @@ void calculateBoundingVolumes(Model& model) {
 void renderBoundingSphere(const Vertex3f& center, float radius) {
     glDisable(GL_LIGHTING);
 
-    float color[3] = {0.0f, 1.0f, 0.0f}; // Green for visible
+    float color[3] = {0.0f, 1.0f, 0.0f};
 
     glColor3fv(color);
 
-    // Save current matrix state
     glPushMatrix();
 
-    // Move to sphere center
     glTranslatef(center.x, center.y, center.z);
 
-    // Set up wireframe rendering
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    // Draw sphere (using GLUT's built-in sphere)
     glutWireSphere(radius, 16, 16);
 
-    // Restore polygon mode
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    // Restore matrix state
     glPopMatrix();
 
     glEnable(GL_LIGHTING);
 }
 
 void drawAxis(){
-    //desenhar eixos
     glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
     // X Red
@@ -832,7 +778,6 @@ void printFPS(float fps) {
     glLoadIdentity();
 
     std::string fpsText = "FPS: " + std::to_string(fps);
-    // Only show 2 decimal places
     fpsText = fpsText.substr(0, fpsText.find('.') + 3);
 
     glColor3f(1.0f, 1.0f, 1.0f);
@@ -855,10 +800,8 @@ void renderScene() {
     static int currentTime = 0;
     static int previousTime = glutGet(GLUT_ELAPSED_TIME);
 
-    // clear buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // set the camera
     glLoadIdentity();
     gluLookAt(camX,camY,camZ,
               lookAtX, lookAtY, lookAtZ,
@@ -913,7 +856,7 @@ void renderScene() {
             auto [sphereCenter, sphereRadius] = getTransformedSphere(model.boundingSphere, model.transformations, true);
 
             if (!isSphereInFrustum(sphereCenter, sphereRadius)) {
-                continue; // Skip this model if it's not visible
+                continue;
             }
             renderedModels++;
 
@@ -923,7 +866,6 @@ void renderScene() {
 
         }
 
-        // Render the model
         glPushMatrix();
         applyTransformations(model.transformations);
 
@@ -966,15 +908,12 @@ void initializeCamera() {
     upY = world.camera.up.y;
     upZ = world.camera.up.z;
 
-    // initial angles
     float dx = lookAtX - camX;
     float dy = lookAtY - camY;
     float dz = lookAtZ - camZ;
 
-    // horizontal angle
     hAngle = atan2(dz, dx);
 
-    // vertical angle
     float horizontalDistance = sqrt(dx*dx + dz*dz);
     vAngle = atan2(dy, horizontalDistance);
 
@@ -1037,12 +976,22 @@ void processKeys(unsigned char key, int x, int y) {
             }
             break;
         case 'f':
-            cullingVisible = !cullingVisible;
-            std::cout << "Frustum Culling: " << (cullingVisible ? "Enabled" : "Disabled") << std::endl;
+            cullingVisible = !cullingVisible; // see bounding spheres
+            std::cout << "Bounding Spheres Visible: " << (cullingVisible ? "Enabled" : "Disabled") << std::endl;
             break;
         case 'x':
-            axisvisible = !axisvisible;
+            axisvisible = !axisvisible; // see axis
             std::cout << "Axis: " << (axisvisible ? "Visible" : "Hidden") << std::endl;
+            break;
+        case 'l':
+            wireframeMode = !wireframeMode; // enable wireframe
+            if (wireframeMode) {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                std::cout << "Wireframe mode: ON" << std::endl;
+            } else {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                std::cout << "Wireframe mode: OFF" << std::endl;
+            }
             break;
     }
     updateCamera();
@@ -1055,10 +1004,8 @@ void processSpecialKeys(int key, int x, int y){
             if(thirdpersoncamera){
                 if (!models.empty()) {
                     if (targetModelIndex == -1) {
-                        // If not following any model, start with first one
                         setThirdPersonCamera(0);
                     } else {
-                        // Cycle to next model
                         setThirdPersonCamera((targetModelIndex + 1) % models.size());
                     }
                 }
@@ -1068,10 +1015,8 @@ void processSpecialKeys(int key, int x, int y){
             if(thirdpersoncamera){
                 if (!models.empty()) {
                     if (targetModelIndex == -1) {
-                        // If not following any model, start with last one
                         setThirdPersonCamera(models.size() - 1);
                     } else {
-                        // Cycle to previous model
                         setThirdPersonCamera((targetModelIndex - 1 + models.size()) % models.size());
                     }
                 }
@@ -1081,32 +1026,25 @@ void processSpecialKeys(int key, int x, int y){
 }
 
 void processMouseMotion(int x, int y) {
-    // Only process if the left button is down and we have a valid last position
     if (!mouseLeftDown || lastMouseX == -1 || lastMouseY == -1) {
         return;
     }
 
-    // Calculate movement delta
     int deltaX = x - lastMouseX;
     int deltaY = y - lastMouseY;
 
-    // Very small sensitivity for smoother motion
     const float sensitivity = 0.002f;
 
-    // Apply the changes
     hAngle -= deltaX * sensitivity;
     vAngle += deltaY * sensitivity;
 
-    // Clamp vertical angle
     const float maxVAngle = M_PI / 2.0f - 0.01f;
     if (vAngle > maxVAngle) vAngle = maxVAngle;
     if (vAngle < -maxVAngle) vAngle = -maxVAngle;
 
-    // Save the current position for the next frame
     lastMouseX = x;
     lastMouseY = y;
 
-    // Update the camera view
     updateCamera();
     glutPostRedisplay();
 }
@@ -1116,29 +1054,25 @@ void processMouseButtons(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON) {
         if (state == GLUT_DOWN) {
             mouseLeftDown = true;
-            // Only initialize lastMouse position when button is first pressed
             lastMouseX = x;
             lastMouseY = y;
         } else {
             mouseLeftDown = false;
-            // Important: Reset the last position when the button is released
             lastMouseX = -1;
             lastMouseY = -1;
         }
     }
 
-    // Handle mouse wheel scrolling
     if (state == GLUT_DOWN) {
 
-        if (button == 3) {  // Scroll up - zoom in
+        if (button == 3) {
             fov -= 2.0f;
             if (fov < 10.0f) fov = 10.0f;
-        } else if (button == 4) {  // Scroll down - zoom out
+        } else if (button == 4) {
             fov += 2.0f;
             if (fov > 90.0f) fov = 90.0f;
         }
 
-        // Update projection matrix and frustum
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         int width = glutGet(GLUT_WINDOW_WIDTH);
@@ -1162,12 +1096,10 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
         return false;
     }
 
-    // Read first line to determine format
     std::string formatLine;
     std::getline(file, formatLine);
     bool hasNormalsAndTextures = (formatLine.find("NT") != std::string::npos);
 
-    // Read number of vertices and triangles
     int n_triangles;
     if (!(file >> model.n_vertices >> n_triangles)) {
         std::cerr << "Error reading vertex and triangle counts from " << filename << std::endl;
@@ -1175,10 +1107,9 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
         return false;
     }
 
-    model.n_indices = n_triangles * 3; // Convert triangles to indices
+    model.n_indices = n_triangles * 3;
     model.vertices.resize(model.n_vertices);
 
-    // Read vertices based on format
     if (hasNormalsAndTextures) {
         // Full format: x y z nx ny nz s t
         for (int i = 0; i < model.n_vertices; i++) {
@@ -1201,7 +1132,6 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
         }
     }
 
-    // Read indices
     model.indices.resize(model.n_indices);
     for (int i = 0; i < model.n_indices; i++) {
         if (!(file >> model.indices[i])) {
@@ -1211,7 +1141,6 @@ bool readModelFromFile(const std::string& filename, Model& model, const ModelInf
         }
     }
 
-    // Set material and texture
     model.material = modelInfo.material;
     if (!modelInfo.texture.empty()) {
         model.textureID = loadTexture(modelInfo.texture);
@@ -1297,7 +1226,6 @@ void run_engine(World new_world, int argc, char **argv) {
     extractFrustumPlanes();
     atexit(cleanupVBOs);
 
-    // enter GLUT's main cycle
     glutMainLoop();
 
 }

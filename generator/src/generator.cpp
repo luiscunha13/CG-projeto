@@ -55,7 +55,7 @@ Generator generatePlane(float size, int divisions) {
 
     return {vertices, indexes};
 }
-    //adicionado normais e texCoords
+
 Generator generateBox(float length, int divisions) {
     float step = length / divisions;
     float halfLength = length / 2.0f;
@@ -186,11 +186,11 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
     const float stack_size = height / stacks;
     const double slice_size = 2 * M_PI / slices;
 
-    // Base center vertex (with normal pointing down)
+    // Base center
     Vertex3f base_center = {0, 0, 0, 0, -1, 0, 0.5f, 0.5f};
     vertices.push_back(base_center);
 
-    // Create base vertices
+    // base vertices
     for (unsigned int slice = 0; slice < slices; ++slice) {
         float angle = slice * slice_size;
 
@@ -205,7 +205,7 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
         vertices.push_back(baseVertex);
     }
 
-    // Create side vertices
+    // side vertices
     for (unsigned int slice = 0; slice <= slices; ++slice) {
         float angle = slice * slice_size;
         float texU = (float)slice / slices;
@@ -218,12 +218,10 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
 
             float texV = (float)stack / stacks;
 
-            // Calculate proper normal for the side
             float normal_x = cos(angle);
             float normal_z = sin(angle);
             float normal_y = radius / height;
 
-            // Normalize
             float length = sqrt(normal_x*normal_x + normal_y*normal_y + normal_z*normal_z);
             normal_x /= length;
             normal_y /= length;
@@ -239,19 +237,17 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
         }
     }
 
-    // Indexes for the base
+    // Indexes base
     for (unsigned int slice = 0; slice < slices; ++slice) {
         uint32_t current = slice + 1;
         uint32_t next = (slice + 1) % slices + 1;
 
-        // Connect center to the edge in counter-clockwise order
         add3Items((uint32_t)0, next, current, indexes);
     }
 
-    // Calculate offset for side vertices
     uint32_t sideOffset = slices + 1;  // 1 center + slices perimeter vertices
 
-    // Indexes for the sides
+    // Indexes sides
     for (unsigned int slice = 0; slice < slices; ++slice) {
         for (unsigned int stack = 0; stack < stacks; ++stack) {
             uint32_t current = slice * (stacks + 1) + stack + sideOffset;
@@ -260,7 +256,6 @@ Generator generateCone(float radius, float height, unsigned int slices, unsigned
             uint32_t top_current = current + 1;
             uint32_t top_next = next + 1;
 
-            // Two triangles per quad
             add3Items(current, top_current, next, indexes);
             add3Items(next, top_current, top_next, indexes);
         }
@@ -492,29 +487,24 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
                     for (int l = 0; l < 4; ++l) {
                         const Vertex3f& cp = controlPoints[indices[k * 4 + l]];
 
-                        // Position
                         point.x += cp.x * Bu[k] * Bv[l];
                         point.y += cp.y * Bu[k] * Bv[l];
                         point.z += cp.z * Bu[k] * Bv[l];
 
-                        // Tangent in u direction
                         tangentU.x += cp.x * dBu[k] * Bv[l];
                         tangentU.y += cp.y * dBu[k] * Bv[l];
                         tangentU.z += cp.z * dBu[k] * Bv[l];
 
-                        // Tangent in v direction
                         tangentV.x += cp.x * Bu[k] * dBv[l];
                         tangentV.y += cp.y * Bu[k] * dBv[l];
                         tangentV.z += cp.z * Bu[k] * dBv[l];
                     }
                 }
 
-                // Calculate normal as cross product of tangents
                 point.nx = tangentU.y * tangentV.z - tangentU.z * tangentV.y;
                 point.ny = tangentU.z * tangentV.x - tangentU.x * tangentV.z;
                 point.nz = tangentU.x * tangentV.y - tangentU.y * tangentV.x;
 
-                // Normalize the normal
                 float len = sqrt(point.nx*point.nx + point.ny*point.ny + point.nz*point.nz);
                 if (len > 0) {
                     point.nx /= len;
@@ -527,7 +517,6 @@ Generator generateBezier(const std::string& patchFile, int tessellation) {
             }
         }
 
-        // Index generation remains the same as original
         for (int i = 0; i < tessellation; ++i) {
             for (int j = 0; j < tessellation; ++j) {
                 const uint32_t topLeft = baseIndex + i * (tessellation + 1) + j;
@@ -555,7 +544,6 @@ bool SaveModel(const Generator &result, const std::string &filename)
 
         file << "NT" << std::endl;
 
-        // Escrever cabeçalho
         file << result.vertices.size() << " " << result.indices.size() / 3 << std::endl;
 
 

@@ -36,7 +36,6 @@ void extractFrustumPlanes() {
     glGetFloatv(GL_PROJECTION_MATRIX, proj);
     glGetFloatv(GL_MODELVIEW_MATRIX, modl);
 
-    // Combine the projection and modelview matrices
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             clip[i*4+j] = 0.0f;
@@ -46,7 +45,6 @@ void extractFrustumPlanes() {
         }
     }
 
-    // Extract the planes
     // Right plane
     frustum.planes[0].a = clip[3] - clip[0];
     frustum.planes[0].b = clip[7] - clip[4];

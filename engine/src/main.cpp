@@ -86,14 +86,12 @@ void parseModels(XMLElement* modelsElement, Group& group) {
 
         modelInfo.material = defaultMaterial;
 
-        // Parse texture
         XMLElement* textureElement = modelElement->FirstChildElement("texture");
         if (textureElement) {
             const char* textureFile = textureElement->Attribute("file");
             if (textureFile) modelInfo.texture = textureFile;
         }
 
-        // Parse material
         XMLElement* colorElement = modelElement->FirstChildElement("color");
         if (colorElement) {
             XMLElement* diffuseElement = colorElement->FirstChildElement("diffuse");
